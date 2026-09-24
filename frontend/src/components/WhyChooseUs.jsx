@@ -32,37 +32,37 @@ export default function WhyChooseUs() {
   };
 
   return (
-    <section id="about" className="py-16 sm:py-24 bg-[#F4EFE6] border-y border-[#E5DAC8]">
+    <section id="about" className="py-12 sm:py-20 lg:py-24 bg-[#F4EFE6] border-y border-[#E5DAC8]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#C5A059]">
+        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-16 space-y-3 sm:space-y-4">
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-[#C5A059]">
             The Rajwada Advantage
           </p>
-          <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#4A0E19]">
+          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[#4A0E19]">
             Why Wholesale Buyers Partner With Us
           </h2>
           <div className="w-16 h-0.5 bg-[#C5A059] mx-auto"></div>
-          <p className="text-base text-[#55504E]">
+          <p className="text-sm sm:text-base text-[#55504E] leading-relaxed">
             We empower saree retailers, boutique owners, and global distributors with unmatched quality, pricing transparency, and reliable fulfillment.
           </p>
         </div>
 
         {/* 4 Value Proposition Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {WHY_CHOOSE_US.map((item) => (
             <div
               key={item.id}
-              className="bg-[#FAF7F2] rounded-xl p-8 border border-[#E5DAC8] shadow-sm hover:shadow-md transition-shadow text-center flex flex-col items-center space-y-4"
+              className="bg-[#FAF7F2] rounded-xl p-6 sm:p-8 border border-[#E5DAC8] shadow-sm hover:shadow-md transition-shadow text-center flex flex-col items-center space-y-3 sm:space-y-4"
             >
-              <div className="w-14 h-14 rounded-full bg-[#6B1626]/10 border border-[#C5A059]/30 flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#6B1626]/10 border border-[#C5A059]/30 flex items-center justify-center shrink-0">
                 {renderIcon(item.icon)}
               </div>
-              <h3 className="font-serif text-xl font-bold text-[#4A0E19]">
+              <h3 className="font-serif text-lg sm:text-xl font-bold text-[#4A0E19]">
                 {item.title}
               </h3>
-              <p className="text-sm text-[#55504E] leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#55504E] leading-relaxed">
                 {item.description}
               </p>
             </div>
