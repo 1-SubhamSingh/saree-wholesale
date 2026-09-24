@@ -1,67 +1,120 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('');
+  const [activeSection, setActiveSection] = useState('home');
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const isManualClickingRef = useRef(false);
+  const clickTimerRef = useRef(null);
 
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Collections', path: '#collections' },
-    { name: 'Catalogue', path: '#catalogue' },
-    { name: 'About Us', path: '#about' },
-    { name: 'Contact', path: '#contact' },
-    { name: 'Health Status', path: '/health' },
+    { id: 'home', name: 'Home', path: '/' },
+    { id: 'catalogue', name: 'Catalogue', path: '/catalogue' },
+    { id: 'collections', name: 'Collections', path: '#collections' },
+    { id: 'about', name: 'About Us', path: '#about' },
+    { id: 'contact', name: 'Contact', path: '#contact' },
+    { id: 'health', name: 'Health Status', path: '/health' },
   ];
 
+  const setManualActiveSection = (sectionId) => {
+    setActiveSection(sectionId);
+    isManualClickingRef.current = true;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      isManualClickingRef.current = false;
+    }, 1000);
+  };
+
+  // Scroll position listener for Home page active section highlight
   useEffect(() => {
-    const handleHashChange = () => {
-      setActiveSection(window.location.hash);
-    };
+    if (location.pathname !== '/') return;
 
     const handleScroll = () => {
-      if (location.pathname !== '/') return;
+      if (isManualClickingRef.current) return;
 
-      const sections = ['collections', 'catalogue', 'about', 'contact', 'enquiry'];
-      const scrollPosition = window.scrollY + 120;
+      const scrollPosition = window.scrollY + 160;
+      const sections = ['collections', 'catalogue', 'about', 'contact'];
 
-      let currentSection = '';
-      for (const sectionId of sections) {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          const top = element.offsetTop;
-          const height = element.offsetHeight;
-          if (scrollPosition >= top && scrollPosition < top + height) {
-            currentSection = `#${sectionId}`;
-            break;
+      let current = 'home';
+      if (window.scrollY < 200) {
+        current = 'home';
+      } else {
+        for (const sectionId of sections) {
+          const el = document.getElementById(sectionId);
+          if (el) {
+            const top = el.offsetTop;
+            const height = el.offsetHeight;
+            if (scrollPosition >= top && scrollPosition < top + height) {
+              current = sectionId;
+              break;
+            }
           }
         }
       }
-
-      setActiveSection(currentSection);
+      setActiveSection(current);
     };
 
-    window.addEventListener('hashchange', handleHashChange);
     window.addEventListener('scroll', handleScroll, { passive: true });
-    
     handleScroll();
 
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
 
-  const isLinkActive = (linkPath) => {
-    if (location.pathname === '/health' && linkPath === '/health') {
-      return true;
-    }
-    if (location.pathname === '/') {
-      if (linkPath === '/' && (!activeSection || activeSection === '')) {
-        return true;
+  // Handle hash scrolling when arriving from external pages
+  useEffect(() => {
+    if (location.pathname === '/' && location.hash) {
+      const targetId = location.hash.replace('#', '');
+      const el = document.getElementById(targetId);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth' });
+          setManualActiveSection(targetId);
+        }, 100);
       }
-      return activeSection === linkPath;
+    }
+  }, [location]);
+
+  const handleLinkClick = (e, link) => {
+    e.preventDefault();
+    setMobileMenuOpen(false);
+
+    if (link.path === '/') {
+      if (location.pathname === '/') {
+        setManualActiveSection('home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        navigate('/');
+      }
+      return;
+    }
+
+    if (link.path.startsWith('/') && !link.path.includes('#')) {
+      navigate(link.path);
+      return;
+    }
+
+    if (link.path.startsWith('#')) {
+      const sectionId = link.path.replace('#', '');
+      if (location.pathname === '/') {
+        setManualActiveSection(sectionId);
+        const el = document.getElementById(sectionId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        navigate(`/${link.path}`);
+      }
+    }
+  };
+
+  const isLinkActive = (link) => {
+    if (location.pathname === '/catalogue' && link.id === 'catalogue') return true;
+    if (location.pathname === '/health' && link.id === 'health') return true;
+    if (location.pathname === '/') {
+      return activeSection === link.id;
     }
     return false;
   };
@@ -71,7 +124,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
+          <Link
+            to="/"
+            onClick={(e) => handleLinkClick(e, { id: 'home', path: '/' })}
+            className="flex items-center gap-2.5 sm:gap-3 group shrink-0"
+          >
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#6B1626] border border-[#C5A059] flex items-center justify-center text-[#E8D39E] font-serif text-lg sm:text-xl font-bold shadow-md group-hover:bg-[#4A0E19] transition-colors">
               R
             </div>
@@ -88,17 +145,13 @@ export default function Navbar() {
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
             {navLinks.map((link) => {
-              const active = isLinkActive(link.path);
+              const active = isLinkActive(link);
               return (
                 <a
-                  key={link.name}
+                  key={link.id}
                   href={link.path}
-                  onClick={() => {
-                    if (link.path.startsWith('#')) {
-                      setActiveSection(link.path);
-                    }
-                  }}
-                  className={`relative py-1 text-xs lg:text-sm font-medium tracking-wide transition-colors ${
+                  onClick={(e) => handleLinkClick(e, link)}
+                  className={`relative py-1 text-xs lg:text-sm font-medium tracking-wide transition-all ${
                     active
                       ? 'text-[#6B1626] font-semibold border-b-2 border-[#C5A059]'
                       : 'text-[#1F1C1D] hover:text-[#6B1626] hover:border-b-2 hover:border-[#C5A059]/50'
@@ -112,12 +165,12 @@ export default function Navbar() {
 
           {/* CTA Button */}
           <div className="hidden md:flex items-center gap-4 shrink-0">
-            <a
-              href="#enquiry"
+            <Link
+              to="/enquiry"
               className="inline-flex items-center justify-center px-4 lg:px-5 py-2 sm:py-2.5 rounded-md bg-[#6B1626] hover:bg-[#4A0E19] text-[#FAF7F2] font-medium text-xs lg:text-sm tracking-wider uppercase border border-[#C5A059]/40 shadow-sm transition-all duration-200 active:scale-95"
             >
               Enquire Now
-            </a>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -144,17 +197,12 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-[#FAF7F2] border-b border-[#E5DAC8] px-4 pt-3 pb-6 space-y-2.5 shadow-xl animate-fadeIn">
           {navLinks.map((link) => {
-            const active = isLinkActive(link.path);
+            const active = isLinkActive(link);
             return (
               <a
-                key={link.name}
+                key={link.id}
                 href={link.path}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (link.path.startsWith('#')) {
-                    setActiveSection(link.path);
-                  }
-                }}
+                onClick={(e) => handleLinkClick(e, link)}
                 className={`block px-3.5 py-2.5 rounded-md text-base font-medium transition-colors ${
                   active
                     ? 'text-[#6B1626] font-semibold bg-[#F4EFE6] border-l-4 border-[#C5A059]'
@@ -166,13 +214,13 @@ export default function Navbar() {
             );
           })}
           <div className="pt-2">
-            <a
-              href="#enquiry"
+            <Link
+              to="/enquiry"
               onClick={() => setMobileMenuOpen(false)}
               className="block text-center w-full px-5 py-3 rounded-md bg-[#6B1626] text-[#FAF7F2] font-semibold text-sm tracking-wider uppercase shadow-md"
             >
               Enquire Now
-            </a>
+            </Link>
           </div>
         </div>
       )}
