@@ -15,9 +15,13 @@ export default function EnquiryPage() {
     businessName: '',
     phone: '',
     city: '',
-    selectedProduct: initialProduct ? `${initialProduct} (${initialSku})` : '',
+    selectedProduct: initialProduct
+      ? `${initialProduct} (${initialSku})`
+      : '',
     quantity: '5 Sets',
-    message: initialProduct ? `Interested in bulk ordering ${initialProduct} (${initialSku}). Please share price list & swatch box details.` : '',
+    message: initialProduct
+      ? `Interested in bulk ordering ${initialProduct} (${initialSku}). Please share price list & swatch box details.`
+      : ''
   });
 
   const [errors, setErrors] = useState({});
@@ -28,7 +32,7 @@ export default function EnquiryPage() {
     if (initialProduct && !formData.selectedProduct) {
       setFormData((prev) => ({
         ...prev,
-        selectedProduct: `${initialProduct} (${initialSku})`,
+        selectedProduct: `${initialProduct} (${initialSku})`
       }));
     }
   }, [initialProduct, initialSku, formData.selectedProduct]);
@@ -46,6 +50,7 @@ export default function EnquiryPage() {
 
     const phoneRegex = /^[0-9]{10}$/;
     const cleanPhone = formData.phone.replace(/[\s-]/g, '');
+
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone / WhatsApp number is required.';
     } else if (!phoneRegex.test(cleanPhone)) {
@@ -61,23 +66,33 @@ export default function EnquiryPage() {
     }
 
     setErrors(newErrors);
+
     return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+
     if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: null }));
+      setErrors((prev) => ({
+        ...prev,
+        [name]: null
+      }));
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
     if (!validate()) return;
 
     setSubmitting(true);
-    // Simulate submission delay
+
     setTimeout(() => {
       setSubmitting(false);
       setSubmitted(true);
@@ -92,64 +107,84 @@ export default function EnquiryPage() {
       city: '',
       selectedProduct: '',
       quantity: '5 Sets',
-      message: '',
+      message: ''
     });
+
     setErrors({});
     setSubmitted(false);
   };
 
+  const inputClass = (error) =>
+    `min-h-11 w-full rounded-lg border bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] transition-all focus:outline-none ${
+      error
+        ? 'border-red-500 focus:ring-2 focus:ring-red-300'
+        : 'border-[#E5DAC8] focus:ring-2 focus:ring-[#C5A059]'
+    }`;
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#1F1C1D]">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2] text-[#1F1C1D]">
       <SEO
         title="Wholesale Bulk Enquiry"
         description="Submit a B2B wholesale enquiry to Rajwada Sarees. Get direct loom pricing, catalogue swatch boxes, and bulk order assistance."
       />
+
       <Navbar />
 
       <main className="flex-grow py-8 sm:py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          {/* Header */}
-          <div className="text-center space-y-3 mb-10">
-            <span className="px-3.5 py-1.5 rounded-full bg-[#6B1626]/10 border border-[#6B1626]/20 text-[#6B1626] text-xs font-semibold uppercase tracking-widest">
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 space-y-3 text-center sm:mb-10">
+            <span className="inline-block max-w-full rounded-full border border-[#6B1626]/20 bg-[#6B1626]/10 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6B1626] sm:text-xs sm:tracking-widest">
               Direct B2B Sales Desk
             </span>
-            <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#4A0E19]">
+
+            <h1 className="font-serif text-3xl font-bold leading-tight text-[#4A0E19] sm:text-5xl">
               Wholesale Bulk Enquiry
             </h1>
-            <p className="text-sm sm:text-base text-[#55504E] max-w-xl mx-auto">
-              Fill out the form below to receive catalogue PDFs, volume price slabs, and swatch boxes.
+
+            <p className="mx-auto max-w-xl text-sm leading-relaxed text-[#55504E] sm:text-base">
+              Fill out the form below to receive catalogue PDFs, volume price
+              slabs, and swatch boxes.
             </p>
           </div>
 
-          {/* Form / Success Card */}
-          <div className="bg-[#F4EFE6] border border-[#E5DAC8] rounded-2xl p-6 sm:p-10 shadow-sm">
-            
+          <div className="rounded-2xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 shadow-sm sm:p-10">
             {submitted ? (
-              <div className="text-center py-8 space-y-6">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700 mx-auto flex items-center justify-center text-3xl">
+              <div className="space-y-6 py-6 text-center sm:py-8">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 text-2xl text-emerald-700 sm:h-16 sm:w-16 sm:text-3xl">
                   ✓
                 </div>
+
                 <div className="space-y-2">
-                  <h2 className="font-serif text-3xl font-bold text-[#4A0E19]">
+                  <h2 className="font-serif text-2xl font-bold leading-tight text-[#4A0E19] sm:text-3xl">
                     Enquiry Received Successfully!
                   </h2>
-                  <p className="text-sm text-[#55504E] max-w-md mx-auto leading-relaxed">
-                    Thank you, <strong className="text-[#1F1C1D]">{formData.fullName}</strong> ({formData.businessName}). Our B2B executive will contact you on <strong className="text-[#6B1626]">{formData.phone}</strong> via phone/WhatsApp within 2 business hours.
+
+                  <p className="mx-auto max-w-md text-sm leading-relaxed text-[#55504E]">
+                    Thank you,{' '}
+                    <strong className="text-[#1F1C1D]">
+                      {formData.fullName}
+                    </strong>{' '}
+                    ({formData.businessName}). Our B2B executive will contact
+                    you on{' '}
+                    <strong className="text-[#6B1626]">
+                      {formData.phone}
+                    </strong>{' '}
+                    via phone/WhatsApp within 2 business hours.
                   </p>
                 </div>
 
-                <div className="pt-4 flex items-center justify-center gap-4">
+                <div className="flex flex-col items-stretch justify-center gap-3 pt-2 sm:flex-row sm:items-center sm:gap-4 sm:pt-4">
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="px-6 py-3 rounded-lg bg-[#6B1626] text-[#FAF7F2] font-semibold text-xs uppercase tracking-wider shadow-sm hover:bg-[#4A0E19]"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#6B1626] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-sm transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 sm:w-auto"
                   >
                     Send Another Enquiry
                   </button>
+
                   <Link
                     to="/catalogue"
-                    className="px-6 py-3 rounded-lg bg-[#FAF7F2] border border-[#E5DAC8] text-[#4A0E19] font-semibold text-xs uppercase tracking-wider hover:bg-[#F4EFE6]"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[#4A0E19] transition-colors hover:bg-[#F4EFE6] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 sm:w-auto"
                   >
                     Return to Catalogue
                   </Link>
@@ -157,173 +192,244 @@ export default function EnquiryPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  
-                  {/* Full Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="fullName"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
                       Full Name <span className="text-red-600">*</span>
                     </label>
+
                     <input
+                      id="fullName"
                       type="text"
                       name="fullName"
                       placeholder="e.g. Rajesh Sharma"
                       value={formData.fullName}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border text-sm focus:outline-none transition-all ${
-                        errors.fullName
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-300'
-                          : 'border-[#E5DAC8] focus:ring-2 focus:ring-[#C5A059]'
-                      }`}
+                      autoComplete="name"
+                      className={inputClass(errors.fullName)}
+                      aria-invalid={Boolean(errors.fullName)}
+                      aria-describedby={
+                        errors.fullName ? 'fullName-error' : undefined
+                      }
                     />
+
                     {errors.fullName && (
-                      <p className="text-xs text-red-600 font-medium">{errors.fullName}</p>
+                      <p
+                        id="fullName-error"
+                        className="text-xs font-medium text-red-600"
+                      >
+                        {errors.fullName}
+                      </p>
                     )}
                   </div>
 
-                  {/* Business Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
-                      Boutique / Business Name <span className="text-red-600">*</span>
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="businessName"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
+                      Boutique / Business Name{' '}
+                      <span className="text-red-600">*</span>
                     </label>
+
                     <input
+                      id="businessName"
                       type="text"
                       name="businessName"
                       placeholder="e.g. Shringar Saree Boutique"
                       value={formData.businessName}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border text-sm focus:outline-none transition-all ${
+                      autoComplete="organization"
+                      className={inputClass(errors.businessName)}
+                      aria-invalid={Boolean(errors.businessName)}
+                      aria-describedby={
                         errors.businessName
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-300'
-                          : 'border-[#E5DAC8] focus:ring-2 focus:ring-[#C5A059]'
-                      }`}
+                          ? 'businessName-error'
+                          : undefined
+                      }
                     />
+
                     {errors.businessName && (
-                      <p className="text-xs text-red-600 font-medium">{errors.businessName}</p>
+                      <p
+                        id="businessName-error"
+                        className="text-xs font-medium text-red-600"
+                      >
+                        {errors.businessName}
+                      </p>
                     )}
                   </div>
 
-                  {/* Phone */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
-                      Mobile / WhatsApp No. <span className="text-red-600">*</span>
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="phone"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
+                      Mobile / WhatsApp No.{' '}
+                      <span className="text-red-600">*</span>
                     </label>
+
                     <input
+                      id="phone"
                       type="tel"
                       name="phone"
+                      inputMode="numeric"
+                      autoComplete="tel"
                       placeholder="10-digit Mobile Number"
                       value={formData.phone}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border text-sm focus:outline-none transition-all ${
-                        errors.phone
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-300'
-                          : 'border-[#E5DAC8] focus:ring-2 focus:ring-[#C5A059]'
-                      }`}
+                      className={inputClass(errors.phone)}
+                      aria-invalid={Boolean(errors.phone)}
+                      aria-describedby={
+                        errors.phone ? 'phone-error' : undefined
+                      }
                     />
+
                     {errors.phone && (
-                      <p className="text-xs text-red-600 font-medium">{errors.phone}</p>
+                      <p
+                        id="phone-error"
+                        className="text-xs font-medium text-red-600"
+                      >
+                        {errors.phone}
+                      </p>
                     )}
                   </div>
 
-                  {/* City */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="city"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
                       City / State <span className="text-red-600">*</span>
                     </label>
+
                     <input
+                      id="city"
                       type="text"
                       name="city"
                       placeholder="e.g. Jaipur, Rajasthan"
                       value={formData.city}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border text-sm focus:outline-none transition-all ${
-                        errors.city
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-300'
-                          : 'border-[#E5DAC8] focus:ring-2 focus:ring-[#C5A059]'
-                      }`}
+                      autoComplete="address-level2"
+                      className={inputClass(errors.city)}
+                      aria-invalid={Boolean(errors.city)}
+                      aria-describedby={
+                        errors.city ? 'city-error' : undefined
+                      }
                     />
+
                     {errors.city && (
-                      <p className="text-xs text-red-600 font-medium">{errors.city}</p>
+                      <p
+                        id="city-error"
+                        className="text-xs font-medium text-red-600"
+                      >
+                        {errors.city}
+                      </p>
                     )}
                   </div>
 
-                  {/* Product Selection */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="selectedProduct"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
                       Target Saree Catalogue / Item
                     </label>
+
                     <select
+                      id="selectedProduct"
                       name="selectedProduct"
                       value={formData.selectedProduct}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border border-[#E5DAC8] text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                      className="min-h-11 w-full rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
                     >
-                      <option value="">General Wholesale Inquiry (All Catalogues)</option>
+                      <option value="">
+                        General Wholesale Inquiry (All Catalogues)
+                      </option>
+
                       {ALL_SAREES.map((s) => (
-                        <option key={s.id} value={`${s.name} (${s.sku})`}>
+                        <option
+                          key={s.id}
+                          value={`${s.name} (${s.sku})`}
+                        >
                           {s.name} ({s.sku})
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Quantity */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
-                      Estimated Requirement <span className="text-red-600">*</span>
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="quantity"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
+                      Estimated Requirement{' '}
+                      <span className="text-red-600">*</span>
                     </label>
+
                     <select
+                      id="quantity"
                       name="quantity"
                       value={formData.quantity}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border border-[#E5DAC8] text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                      className="min-h-11 w-full rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
                     >
-                      <option value="5 Sets">5 - 10 Sets (Trial Pack)</option>
-                      <option value="15 Sets">15 - 30 Sets (Boutique Order)</option>
-                      <option value="50+ Sets">50+ Sets (Showroom Bulk)</option>
-                      <option value="Custom Order">Custom Weaving / Export Bulk</option>
+                      <option value="5 Sets">
+                        5 - 10 Sets (Trial Pack)
+                      </option>
+                      <option value="15 Sets">
+                        15 - 30 Sets (Boutique Order)
+                      </option>
+                      <option value="50+ Sets">
+                        50+ Sets (Showroom Bulk)
+                      </option>
+                      <option value="Custom Order">
+                        Custom Weaving / Export Bulk
+                      </option>
                     </select>
                   </div>
-
                 </div>
 
-                {/* Message */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#4A0E19] block">
+                  <label
+                    htmlFor="message"
+                    className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                  >
                     Message / Special Customization Request
                   </label>
+
                   <textarea
-                    rows={4}
+                    id="message"
+                    rows={5}
                     name="message"
                     placeholder="Provide details about your required color variants, target price point, or delivery timeline..."
                     value={formData.message}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-lg bg-[#FAF7F2] border border-[#E5DAC8] text-sm focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
-                  ></textarea>
+                    className="w-full resize-y rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                  />
                 </div>
 
-                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 rounded-lg bg-[#6B1626] hover:bg-[#4A0E19] text-[#FAF7F2] font-semibold text-sm tracking-wider uppercase border border-[#C5A059]/40 shadow-md transition-all flex items-center justify-center gap-2"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#C5A059]/40 bg-[#6B1626] px-4 py-4 text-center text-sm font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-md transition-all hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {submitting ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Submitting B2B Request...</span>
+                      <div className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      <span className="truncate">
+                        Submitting B2B Request...
+                      </span>
                     </>
                   ) : (
                     <span>Submit Wholesale Enquiry</span>
                   )}
                 </button>
-
               </form>
             )}
-
           </div>
-
         </div>
       </main>
 

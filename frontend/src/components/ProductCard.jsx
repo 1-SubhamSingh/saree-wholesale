@@ -2,68 +2,77 @@ import { Link } from 'react-router-dom';
 
 export default function ProductCard({ saree }) {
   return (
-    <div className="group rounded-xl overflow-hidden border border-[#E5DAC8] bg-[#FAF7F2] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-      
-      {/* Product Image Placeholder Box */}
-      <Link to={`/product/${saree.id}`} className="block relative w-full h-64 overflow-hidden shadow-inner">
-        <div className={`w-full h-full ${saree.imageBg} p-6 flex flex-col justify-between transition-transform duration-500 group-hover:scale-105`}>
-          
-          {/* Subtle Decorative Backdrop Pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#C5A059_1px,transparent_1px)] [background-size:12px_12px]"></div>
+    <div className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] shadow-sm transition-all duration-300 hover:shadow-xl">
+      <Link
+        to={`/product/${saree.id}`}
+        className="relative block h-48 w-full overflow-hidden shadow-inner sm:h-64"
+      >
+        <div
+          className={`relative flex h-full w-full flex-col justify-between overflow-hidden ${saree.imageBg} p-3 transition-transform duration-500 group-hover:scale-105 sm:p-6`}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#C5A059_1px,transparent_1px)] opacity-10 [background-size:12px_12px]" />
 
-          {/* Top Badges */}
-          <div className="relative z-10 flex justify-between items-start">
-            <span className="px-2.5 py-1 rounded bg-[#FAF7F2]/90 backdrop-blur-sm text-[#4A0E19] text-[10px] font-bold uppercase tracking-wider shadow-sm">
+          <div className="relative z-10 flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 max-w-[65%] truncate rounded bg-[#FAF7F2]/90 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#4A0E19] shadow-sm backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-[10px]">
               {saree.category}
             </span>
-            <span className="px-2.5 py-1 rounded bg-[#6B1626] text-[#E8D39E] text-[10px] font-bold uppercase tracking-wider shadow-sm border border-[#C5A059]/40">
+
+            <span className="max-w-[40%] shrink-0 truncate rounded border border-[#C5A059]/40 bg-[#6B1626] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#E8D39E] shadow-sm sm:px-2.5 sm:py-1 sm:text-[10px]">
               {saree.badge}
             </span>
           </div>
 
-          {/* Center Illustration Banner */}
-          <div className="relative z-10 text-center my-auto">
-            <div className="text-4xl mb-1 drop-shadow transform group-hover:scale-110 transition-transform">🥻</div>
-            <p className="text-[11px] font-mono text-[#E8D39E] tracking-widest uppercase opacity-90">
+          <div className="relative z-10 my-auto text-center">
+            <div className="mb-1 transform text-3xl drop-shadow transition-transform group-hover:scale-110 sm:text-4xl">
+              🥻
+            </div>
+
+            <p className="truncate px-2 font-mono text-[9px] uppercase tracking-widest text-[#E8D39E] opacity-90 sm:text-[11px]">
               {saree.sku}
             </p>
           </div>
 
-          {/* Bottom Fabric Info Overlay */}
-          <div className="relative z-10 flex justify-between items-center text-[11px] text-[#FAF7F2]/90 font-medium">
-            <span>{saree.fabric}</span>
-            <span className="text-[#E8D39E] font-semibold">{saree.minOrder}</span>
+          <div className="relative z-10 flex min-w-0 items-center justify-between gap-2 text-[9px] font-medium text-[#FAF7F2]/90 sm:text-[11px]">
+            <span className="min-w-0 truncate">{saree.fabric}</span>
+            <span className="shrink-0 font-semibold text-[#E8D39E]">
+              {saree.minOrder}
+            </span>
           </div>
         </div>
       </Link>
 
-      {/* Card Details */}
-      <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
-        <div>
-          <div className="text-xs font-mono text-[#C5A059] uppercase tracking-wider mb-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-between space-y-3 p-3 sm:p-6">
+        <div className="min-w-0">
+          <div className="mb-1 truncate font-mono text-[9px] uppercase tracking-wider text-[#C5A059] sm:text-xs">
             {saree.sku}
           </div>
+
           <Link to={`/product/${saree.id}`}>
-            <h3 className="font-serif text-lg font-bold text-[#4A0E19] group-hover:text-[#6B1626] transition-colors leading-snug">
+            <h3 className="break-words font-serif text-base font-bold leading-snug text-[#4A0E19] transition-colors group-hover:text-[#6B1626] sm:text-lg">
               {saree.name}
             </h3>
           </Link>
         </div>
 
-        <div className="pt-3 border-t border-[#E5DAC8] flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase text-[#55504E] tracking-wider">Bulk Rate</p>
-            <p className="font-sans font-bold text-sm text-[#6B1626]">{saree.priceTier}</p>
+        <div className="flex min-w-0 items-center justify-between gap-2 border-t border-[#E5DAC8] pt-3">
+          <div className="min-w-0">
+            <p className="text-[9px] uppercase tracking-wider text-[#55504E] sm:text-[10px]">
+              Bulk Rate
+            </p>
+
+            <p className="truncate font-sans text-xs font-bold text-[#6B1626] sm:text-sm">
+              {saree.priceTier}
+            </p>
           </div>
+
           <Link
             to={`/product/${saree.id}`}
-            className="px-4 py-2 rounded bg-[#F4EFE6] hover:bg-[#6B1626] text-[#4A0E19] hover:text-[#FAF7F2] text-xs font-semibold uppercase tracking-wider transition-colors border border-[#E5DAC8] inline-block text-center"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-2 text-[9px] font-semibold uppercase tracking-wider text-[#4A0E19] transition-colors hover:bg-[#6B1626] hover:text-[#FAF7F2] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 focus:ring-offset-[#FAF7F2] sm:px-4 sm:text-xs"
           >
             View Details
           </Link>
         </div>
       </div>
-
     </div>
   );
 }

@@ -3,227 +3,343 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('home');
+  const [scrolledSection, setScrolledSection] = useState('home');
+
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isManualClickingRef = useRef(false);
-  const clickTimerRef = useRef(null);
+  const isManualRef = useRef(false);
+  const manualTimerRef = useRef(null);
 
   const navLinks = [
-    { id: 'home', name: 'Home', path: '/' },
-    { id: 'catalogue', name: 'Catalogue', path: '/catalogue' },
-    { id: 'collections', name: 'Collections', path: '#collections' },
-    { id: 'about', name: 'About Us', path: '#about' },
-    { id: 'contact', name: 'Contact', path: '#contact' },
-    { id: 'health', name: 'Health Status', path: '/health' },
+    { id: 'home', name: 'Home', path: '/', type: 'route' },
+    { id: 'catalogue', name: 'Catalogue', path: '/catalogue', type: 'route' },
+    { id: 'collections', name: 'Collections', path: '#collections', type: 'hash' },
+    { id: 'about', name: 'About Us', path: '#about', type: 'hash' },
+    { id: 'contact', name: 'Contact', path: '#contact', type: 'hash' }
   ];
 
-  const setManualActiveSection = (sectionId) => {
-    setActiveSection(sectionId);
-    isManualClickingRef.current = true;
-    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-    clickTimerRef.current = setTimeout(() => {
-      isManualClickingRef.current = false;
-    }, 1000);
+  const getActiveId = () => {
+    const path = location.pathname;
+
+    if (path === '/catalogue') return 'catalogue';
+    if (path.startsWith('/product')) return 'catalogue';
+    if (path === '/enquiry') return '';
+    if (path === '/health') return '';
+    if (path === '/') return scrolledSection;
+
+    return '';
   };
 
-  // Scroll position listener for Home page active section highlight
+  const activeId = getActiveId();
+
   useEffect(() => {
     if (location.pathname !== '/') return;
 
     const handleScroll = () => {
-      if (isManualClickingRef.current) return;
+      if (isManualRef.current) return;
 
-      const scrollPosition = window.scrollY + 160;
-      const sections = ['collections', 'catalogue', 'about', 'contact'];
+      const scrollY = window.scrollY;
 
-      let current = 'home';
-      if (window.scrollY < 200) {
-        current = 'home';
-      } else {
-        for (const sectionId of sections) {
-          const el = document.getElementById(sectionId);
-          if (el) {
-            const top = el.offsetTop;
-            const height = el.offsetHeight;
-            if (scrollPosition >= top && scrollPosition < top + height) {
-              current = sectionId;
-              break;
-            }
+      if (
+        Math.ceil(window.innerHeight + scrollY) >=
+        document.documentElement.scrollHeight - 50
+      ) {
+        setScrolledSection('contact');
+        return;
+      }
+
+      const sections = ['contact', 'about', 'collections', 'home'];
+
+      for (const sid of sections) {
+        const el = document.getElementById(sid);
+
+        if (el) {
+          const rect = el.getBoundingClientRect();
+
+          if (rect.top <= window.innerHeight / 2) {
+            setScrolledSection(sid);
+            return;
           }
         }
       }
-      setActiveSection(current);
+
+      setScrolledSection('home');
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, [location.pathname]);
 
-  // Handle hash scrolling when arriving from external pages
   useEffect(() => {
     if (location.pathname === '/' && location.hash) {
       const targetId = location.hash.replace('#', '');
-      const el = document.getElementById(targetId);
-      if (el) {
-        setTimeout(() => {
-          el.scrollIntoView({ behavior: 'smooth' });
-          setManualActiveSection(targetId);
-        }, 100);
-      }
+
+      const timer = setTimeout(() => {
+        const el = document.getElementById(targetId);
+
+        if (el) {
+          const navbarHeight =
+            window.innerWidth >= 640 ? 80 : 56;
+
+          const top =
+            el.getBoundingClientRect().top +
+            window.scrollY -
+            navbarHeight;
+
+          window.scrollTo({
+            top,
+            behavior: 'smooth'
+          });
+        }
+
+        isManualRef.current = true;
+        setScrolledSection(targetId);
+
+        if (manualTimerRef.current) {
+          clearTimeout(manualTimerRef.current);
+        }
+
+        manualTimerRef.current = setTimeout(() => {
+          isManualRef.current = false;
+        }, 1200);
+      }, 80);
+
+      return () => clearTimeout(timer);
     }
   }, [location]);
+
+  useEffect(() => {
+    return () => {
+      if (manualTimerRef.current) {
+        clearTimeout(manualTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleLinkClick = (e, link) => {
     e.preventDefault();
     setMobileMenuOpen(false);
 
-    if (link.path === '/') {
-      if (location.pathname === '/') {
-        setManualActiveSection('home');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        navigate('/');
-      }
-      return;
-    }
+    if (link.type === 'route') {
+      if (link.path === '/' && location.pathname === '/') {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
 
-    if (link.path.startsWith('/') && !link.path.includes('#')) {
-      navigate(link.path);
-      return;
-    }
+        isManualRef.current = true;
+        setScrolledSection('home');
 
-    if (link.path.startsWith('#')) {
-      const sectionId = link.path.replace('#', '');
-      if (location.pathname === '/') {
-        setManualActiveSection(sectionId);
-        const el = document.getElementById(sectionId);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth' });
+        if (manualTimerRef.current) {
+          clearTimeout(manualTimerRef.current);
         }
-      } else {
-        navigate(`/${link.path}`);
-      }
-    }
-  };
 
-  const isLinkActive = (link) => {
-    if (location.pathname === '/catalogue' && link.id === 'catalogue') return true;
-    if (location.pathname === '/health' && link.id === 'health') return true;
-    if (location.pathname === '/') {
-      return activeSection === link.id;
+        manualTimerRef.current = setTimeout(() => {
+          isManualRef.current = false;
+        }, 800);
+      } else {
+        navigate(link.path);
+      }
+
+      return;
     }
-    return false;
+
+    const sectionId = link.path.replace('#', '');
+
+    if (location.pathname === '/') {
+      const el = document.getElementById(sectionId);
+
+      if (el) {
+        const navbarHeight =
+          window.innerWidth >= 640 ? 80 : 56;
+
+        const top =
+          el.getBoundingClientRect().top +
+          window.scrollY -
+          navbarHeight;
+
+        window.scrollTo({
+          top,
+          behavior: 'smooth'
+        });
+
+        isManualRef.current = true;
+        setScrolledSection(sectionId);
+
+        if (manualTimerRef.current) {
+          clearTimeout(manualTimerRef.current);
+        }
+
+        manualTimerRef.current = setTimeout(() => {
+          isManualRef.current = false;
+        }, 1200);
+      }
+    } else {
+      navigate(`/${link.path}`);
+    }
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E5DAC8] transition-all">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Brand Logo */}
-          <Link
-            to="/"
-            onClick={(e) => handleLinkClick(e, { id: 'home', path: '/' })}
-            className="flex items-center gap-2.5 sm:gap-3 group shrink-0"
-          >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#6B1626] border border-[#C5A059] flex items-center justify-center text-[#E8D39E] font-serif text-lg sm:text-xl font-bold shadow-md group-hover:bg-[#4A0E19] transition-colors">
-              R
-            </div>
-            <div className="flex flex-col">
-              <span className="font-serif text-lg sm:text-2xl font-bold tracking-wide text-[#4A0E19] uppercase leading-none">
-                Rajwada <span className="text-[#C5A059]">Sarees</span>
-              </span>
-              <span className="text-[9px] sm:text-[10px] uppercase tracking-wider sm:tracking-widest text-[#55504E] font-sans font-semibold mt-0.5">
-                Wholesale &amp; Manufacturer
-              </span>
-            </div>
-          </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
-            {navLinks.map((link) => {
-              const active = isLinkActive(link);
-              return (
-                <a
-                  key={link.id}
-                  href={link.path}
-                  onClick={(e) => handleLinkClick(e, link)}
-                  className={`relative py-1 text-xs lg:text-sm font-medium tracking-wide transition-all ${
-                    active
-                      ? 'text-[#6B1626] font-semibold border-b-2 border-[#C5A059]'
-                      : 'text-[#1F1C1D] hover:text-[#6B1626] hover:border-b-2 hover:border-[#C5A059]/50'
-                  }`}
-                >
-                  {link.name}
-                </a>
-              );
-            })}
-          </nav>
-
-          {/* CTA Button */}
-          <div className="hidden md:flex items-center gap-4 shrink-0">
+    <>
+      <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-[#E5DAC8] bg-[#FAF7F2]/95 shadow-sm backdrop-blur-md">
+        <div className="mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8">
+          <div className="flex min-h-14 items-center justify-between gap-2 sm:min-h-20">
             <Link
-              to="/enquiry"
-              className="inline-flex items-center justify-center px-4 lg:px-5 py-2 sm:py-2.5 rounded-md bg-[#6B1626] hover:bg-[#4A0E19] text-[#FAF7F2] font-medium text-xs lg:text-sm tracking-wider uppercase border border-[#C5A059]/40 shadow-sm transition-all duration-200 active:scale-95"
+              to="/"
+              onClick={(e) =>
+                handleLinkClick(e, {
+                  id: 'home',
+                  path: '/',
+                  type: 'route'
+                })
+              }
+              className="group flex min-w-0 shrink items-center gap-2 sm:gap-3"
             >
-              Enquire Now
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#C5A059] bg-[#6B1626] font-serif text-lg font-bold text-[#E8D39E] shadow-md transition-colors group-hover:bg-[#4A0E19] sm:h-10 sm:w-10 sm:text-xl">
+                R
+              </div>
+
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-serif text-sm font-bold uppercase leading-none tracking-wide text-[#4A0E19] sm:text-2xl">
+                  Rajwada <span className="text-[#C5A059]">Sarees</span>
+                </span>
+
+                <span className="mt-0.5 hidden text-[10px] font-semibold uppercase tracking-widest text-[#55504E] sm:block">
+                  Wholesale &amp; Manufacturer
+                </span>
+              </div>
             </Link>
-          </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex md:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-md text-[#4A0E19] hover:bg-[#F4EFE6] focus:outline-none touch-manipulation"
-              aria-label="Toggle Navigation Menu"
-            >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+            <nav className="hidden items-center space-x-1 md:flex lg:space-x-2">
+              {navLinks.map((link) => {
+                const isActive = activeId === link.id;
 
-      {/* Mobile Menu Dropdown */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-[#FAF7F2] border-b border-[#E5DAC8] px-4 pt-3 pb-6 space-y-2.5 shadow-xl animate-fadeIn">
-          {navLinks.map((link) => {
-            const active = isLinkActive(link);
-            return (
-              <a
-                key={link.id}
-                href={link.path}
-                onClick={(e) => handleLinkClick(e, link)}
-                className={`block px-3.5 py-2.5 rounded-md text-base font-medium transition-colors ${
-                  active
-                    ? 'text-[#6B1626] font-semibold bg-[#F4EFE6] border-l-4 border-[#C5A059]'
-                    : 'text-[#1F1C1D] hover:text-[#6B1626] hover:bg-[#F4EFE6]'
-                }`}
+                return (
+                  <a
+                    key={link.id}
+                    href={link.path}
+                    onClick={(e) => handleLinkClick(e, link)}
+                    className={[
+                      'relative whitespace-nowrap rounded-sm px-3 py-2 text-xs font-medium tracking-wide transition-colors duration-200 lg:px-4 lg:text-sm',
+                      isActive
+                        ? 'font-semibold text-[#6B1626]'
+                        : 'text-[#1F1C1D] hover:text-[#6B1626]'
+                    ].join(' ')}
+                  >
+                    {link.name}
+
+                    <span
+                      className={[
+                        'absolute bottom-0 left-0 right-0 h-0.5 origin-center rounded-full bg-[#C5A059] transition-all duration-300',
+                        isActive
+                          ? 'scale-x-100 opacity-100'
+                          : 'scale-x-0 opacity-0'
+                      ].join(' ')}
+                    />
+                  </a>
+                );
+              })}
+            </nav>
+
+            <div className="hidden shrink-0 items-center gap-4 md:flex">
+              <Link
+                to="/enquiry"
+                className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md border border-[#C5A059]/40 bg-[#6B1626] px-4 py-2 text-xs font-medium uppercase tracking-wider text-[#FAF7F2] shadow-sm transition-all duration-200 hover:bg-[#4A0E19] active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
               >
-                {link.name}
-              </a>
-            );
-          })}
-          <div className="pt-2">
-            <Link
-              to="/enquiry"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block text-center w-full px-5 py-3 rounded-md bg-[#6B1626] text-[#FAF7F2] font-semibold text-sm tracking-wider uppercase shadow-md"
-            >
-              Enquire Now
-            </Link>
+                Enquire Now
+              </Link>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5 md:hidden">
+              <Link
+                to="/enquiry"
+                onClick={() => setMobileMenuOpen(false)}
+                className="inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded border border-[#C5A059]/40 bg-[#6B1626] px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#FAF7F2] transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
+              >
+                Enquire
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-[#4A0E19] transition-colors hover:bg-[#F4EFE6] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
+                aria-label="Toggle Navigation Menu"
+                aria-expanded={mobileMenuOpen}
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  {mobileMenuOpen ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  )}
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
-      )}
-    </header>
+
+        {mobileMenuOpen && (
+          <div className="border-t border-[#E5DAC8] bg-[#FAF7F2] shadow-lg md:hidden">
+            <nav className="space-y-1 px-4 py-3">
+              {navLinks.map((link) => {
+                const isActive = activeId === link.id;
+
+                return (
+                  <a
+                    key={link.id}
+                    href={link.path}
+                    onClick={(e) => handleLinkClick(e, link)}
+                    className={[
+                      'flex min-h-11 items-center rounded-lg border-l-4 px-4 py-3 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'border-[#C5A059] bg-[#6B1626]/10 font-semibold text-[#6B1626]'
+                        : 'border-transparent text-[#1F1C1D] hover:bg-[#F4EFE6] hover:text-[#6B1626]'
+                    ].join(' ')}
+                  >
+                    {link.name}
+                  </a>
+                );
+              })}
+
+              <div className="pt-3">
+                <Link
+                  to="/enquiry"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex min-h-11 w-full items-center justify-center rounded-lg bg-[#6B1626] px-5 py-3 text-center text-sm font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-md transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
+                >
+                  Send Wholesale Enquiry
+                </Link>
+              </div>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      <div
+        aria-hidden="true"
+        className="h-14 shrink-0 sm:h-20"
+      />
+    </>
   );
 }

@@ -1,44 +1,76 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
-    <footer id="contact" className="bg-[#1F1C1D] text-[#FAF7F2] border-t border-[#C5A059]/30 pt-16 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#55504E]/40">
-          
-          {/* Brand Info */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#6B1626] border border-[#C5A059] flex items-center justify-center text-[#E8D39E] font-serif text-lg font-bold">
+    <footer
+      id="contact"
+      className="border-t border-[#C5A059]/30 bg-[#1F1C1D] pb-6 pt-10 text-[#FAF7F2] sm:pb-12 sm:pt-16"
+    >
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 border-b border-[#55504E]/40 pb-10 sm:grid-cols-2 sm:gap-10 sm:pb-12 lg:grid-cols-5">
+          <div className="min-w-0 space-y-4 sm:col-span-2 lg:col-span-2">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C5A059] bg-[#6B1626] font-serif text-lg font-bold text-[#E8D39E]">
                 R
               </div>
-              <span className="font-serif text-2xl font-bold tracking-wide text-[#FAF7F2] uppercase">
+
+              <span className="min-w-0 break-words font-serif text-xl font-bold uppercase tracking-wide text-[#FAF7F2] sm:text-2xl">
                 Rajwada <span className="text-[#C5A059]">Sarees</span>
               </span>
             </div>
-            <p className="text-sm text-[#FAF7F2]/70 leading-relaxed max-w-sm">
-              Premier manufacturer &amp; wholesale exporter of authentic Indian sarees. Specializing in Kanjivaram, Banarasi, Chanderi, and contemporary designer collections.
+
+            <p className="max-w-sm text-sm leading-relaxed text-[#FAF7F2]/70">
+              Premier manufacturer &amp; wholesale exporter of authentic Indian
+              sarees. Specializing in Kanjivaram, Banarasi, Chanderi, and
+              contemporary designer collections.
             </p>
-            <div className="pt-2 text-xs text-[#C5A059] font-medium tracking-wider uppercase">
+
+            <div className="text-xs font-medium uppercase tracking-wider text-[#C5A059]">
               ✦ Surat &amp; Kanchipuram Weaving Hubs
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="font-serif text-lg font-bold text-[#E8D39E]">Categories</h4>
+          <div className="min-w-0 space-y-3">
+            <h4 className="font-serif text-base font-bold text-[#E8D39E] sm:text-lg">
+              Categories
+            </h4>
+
             <ul className="space-y-2 text-sm text-[#FAF7F2]/70">
-              <li><a href="#collections" className="hover:text-[#C5A059] transition-colors">Silk Sarees</a></li>
-              <li><a href="#collections" className="hover:text-[#C5A059] transition-colors">Banarasi Brocade</a></li>
-              <li><a href="#collections" className="hover:text-[#C5A059] transition-colors">Chanderi Cotton</a></li>
-              <li><a href="#collections" className="hover:text-[#C5A059] transition-colors">Organza Designer</a></li>
-              <li><a href="#collections" className="hover:text-[#C5A059] transition-colors">Bridal Wear</a></li>
+              <li>
+                <a href="#collections" className="transition-colors hover:text-[#C5A059]">
+                  Silk Sarees
+                </a>
+              </li>
+              <li>
+                <a href="#collections" className="transition-colors hover:text-[#C5A059]">
+                  Banarasi Brocade
+                </a>
+              </li>
+              <li>
+                <a href="#collections" className="transition-colors hover:text-[#C5A059]">
+                  Chanderi Cotton
+                </a>
+              </li>
+              <li>
+                <a href="#collections" className="transition-colors hover:text-[#C5A059]">
+                  Organza Designer
+                </a>
+              </li>
+              <li>
+                <a href="#collections" className="transition-colors hover:text-[#C5A059]">
+                  Bridal Wear
+                </a>
+              </li>
             </ul>
           </div>
 
-          {/* Business Hours & Support */}
-          <div className="space-y-3">
-            <h4 className="font-serif text-lg font-bold text-[#E8D39E]">Wholesale Support</h4>
-            <ul className="space-y-2 text-sm text-[#FAF7F2]/70">
-              <li>Mon - Sat: 9:30 AM - 7:30 PM</li>
+          <div className="min-w-0 space-y-3">
+            <h4 className="font-serif text-base font-bold text-[#E8D39E] sm:text-lg">
+              Wholesale Support
+            </h4>
+
+            <ul className="space-y-2 text-sm leading-relaxed text-[#FAF7F2]/70">
+              <li>Mon – Sat: 9:30 AM – 7:30 PM</li>
               <li>Bulk Order Helpdesk</li>
               <li>Custom Catalogue Service</li>
               <li>GST Billing Assistance</li>
@@ -46,28 +78,52 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact Details */}
-          <div className="space-y-3">
-            <h4 className="font-serif text-lg font-bold text-[#E8D39E]">Contact Us</h4>
-            <div className="space-y-2 text-sm text-[#FAF7F2]/70">
-              <p>📍 Ring Road Textile Market, Surat, Gujarat 395002</p>
-              <p>✉️ wholesale@rajwadasarees.com</p>
-              <p>📞 +91 98765 43210 (B2B Desk)</p>
+          <div className="min-w-0 space-y-3">
+            <h4 className="font-serif text-base font-bold text-[#E8D39E] sm:text-lg">
+              Contact Us
+            </h4>
+
+            <div className="space-y-2 text-sm leading-relaxed text-[#FAF7F2]/70">
+              <p className="break-words">
+                📍 Ring Road Textile Market, Surat, Gujarat 395002
+              </p>
+
+              <p className="break-all">
+                ✉️ wholesale@rajwadasarees.com
+              </p>
+
+              <p className="break-words">
+                📞 +91 98765 43210 (B2B Desk)
+              </p>
             </div>
-          </div>
 
-        </div>
-
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#FAF7F2]/50 gap-4">
-          <p>© {new Date().getFullYear()} Rajwada Sarees Wholesale. All rights reserved.</p>
-          <div className="flex space-x-6">
-            <a href="#about" className="hover:text-[#C5A059]">Privacy Policy</a>
-            <a href="#about" className="hover:text-[#C5A059]">Wholesale Terms</a>
-            <a href="#about" className="hover:text-[#C5A059]">Shipping Policy</a>
+            <Link
+              to="/enquiry"
+              className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-[#C5A059]/40 bg-[#6B1626] px-5 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-[#FAF7F2] transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 focus:ring-offset-[#1F1C1D] sm:w-auto"
+            >
+              Send Enquiry ✉️
+            </Link>
           </div>
         </div>
 
+        <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center text-xs text-[#FAF7F2]/50 sm:pt-8 lg:flex-row lg:text-left">
+          <p className="max-w-full break-words">
+            © {new Date().getFullYear()} Rajwada Sarees Wholesale. All rights
+            reserved.
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 sm:gap-x-6">
+            <a href="#about" className="transition-colors hover:text-[#C5A059]">
+              Privacy Policy
+            </a>
+            <a href="#about" className="transition-colors hover:text-[#C5A059]">
+              Wholesale Terms
+            </a>
+            <a href="#about" className="transition-colors hover:text-[#C5A059]">
+              Shipping Policy
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   );
