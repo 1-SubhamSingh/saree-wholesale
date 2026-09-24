@@ -3,37 +3,39 @@ import ProductCard from './ProductCard';
 
 export default function FeaturedProducts() {
   return (
-    <section id="catalogue" className="py-12 sm:py-20 lg:py-24 bg-[#FAF7F2]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 sm:mb-16 gap-4 sm:gap-6">
-          <div className="space-y-2 sm:space-y-3">
-            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-[#C5A059]">
+    <section
+      id="catalogue"
+      className="bg-[#FAF7F2] py-12 sm:py-20 lg:py-24"
+    >
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 flex flex-col gap-6 sm:mb-16 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-2 sm:space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C5A059] sm:text-xs sm:tracking-widest">
               Trending Wholesale Designs
             </p>
-            <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[#4A0E19]">
+
+            <h2 className="font-serif text-2xl font-bold leading-tight text-[#4A0E19] sm:text-4xl">
               Featured Saree Catalogues
             </h2>
-            <div className="w-16 h-0.5 bg-[#C5A059]"></div>
+
+            <div className="h-0.5 w-12 bg-[#C5A059] sm:w-16" />
           </div>
-          <div className="pt-2 sm:pt-0">
+
+          <div className="w-full sm:w-auto">
             <a
               href="#enquiry"
-              className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded bg-[#6B1626] hover:bg-[#4A0E19] text-[#FAF7F2] font-semibold text-xs tracking-wider uppercase shadow-md transition-colors"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded bg-[#6B1626] px-5 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-md transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 focus:ring-offset-[#FAF7F2] sm:w-auto sm:px-6 sm:py-3"
             >
               Request Full Price List ➔
             </a>
           </div>
         </div>
 
-        {/* 4 Featured Saree Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
           {FEATURED_SAREES.map((item) => (
             <ProductCard key={item.id} saree={item} />
           ))}
         </div>
-
       </div>
     </section>
   );

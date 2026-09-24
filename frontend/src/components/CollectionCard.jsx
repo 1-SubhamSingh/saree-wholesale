@@ -1,41 +1,49 @@
 export default function CollectionCard({ collection }) {
   return (
-    <div className="group relative rounded-xl overflow-hidden border border-[#E5DAC8] bg-[#F4EFE6] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between p-6">
-      
-      {/* Top Header & Badge */}
-      <div className="flex justify-between items-start mb-4">
-        <span className="text-3xl">{collection.symbol}</span>
-        <span className="px-2.5 py-1 rounded-full bg-[#6B1626]/10 text-[#6B1626] text-xs font-semibold tracking-wider uppercase border border-[#6B1626]/20">
+    <div className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-3 shadow-sm transition-all duration-300 hover:shadow-xl sm:p-6">
+      <div className="mb-3 flex items-start justify-between gap-2 sm:mb-4">
+        <span className="shrink-0 text-2xl sm:text-3xl">
+          {collection.symbol}
+        </span>
+
+        <span className="max-w-[65%] shrink-0 truncate rounded-full border border-[#6B1626]/20 bg-[#6B1626]/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#6B1626] sm:max-w-none sm:px-2.5 sm:py-1 sm:text-xs">
           {collection.badge}
         </span>
       </div>
 
-      {/* Visual Placeholder Graphic Box */}
-      <div className={`w-full h-36 rounded-lg ${collection.gradient} p-4 flex flex-col justify-between text-white relative overflow-hidden mb-6 shadow-inner`}>
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
-        <div className="relative z-10 flex justify-between items-center text-xs text-[#E8D39E]">
-          <span className="font-mono uppercase tracking-widest">{collection.id}</span>
-          <span>{collection.itemCount}</span>
+      <div
+        className={`relative mb-4 flex h-28 w-full flex-col justify-between overflow-hidden rounded-lg ${collection.gradient} p-3 text-white shadow-inner sm:mb-6 sm:h-36 sm:p-4`}
+      >
+        <div className="pointer-events-none absolute right-0 top-0 h-20 w-20 rounded-full bg-white/5 blur-xl sm:h-24 sm:w-24" />
+
+        <div className="relative z-10 flex min-w-0 items-center justify-between gap-2 text-[9px] text-[#E8D39E] sm:text-xs">
+          <span className="min-w-0 truncate font-mono uppercase tracking-widest">
+            {collection.id}
+          </span>
+          <span className="shrink-0">{collection.itemCount}</span>
         </div>
-        <div className="relative z-10 font-serif text-lg font-bold text-[#FAF7F2]">
+
+        <div className="relative z-10 line-clamp-2 font-serif text-sm font-bold leading-tight text-[#FAF7F2] sm:text-lg">
           {collection.title}
         </div>
       </div>
 
-      {/* Card Content */}
-      <div className="space-y-3">
-        <h3 className="font-serif text-xl font-bold text-[#4A0E19] group-hover:text-[#6B1626] transition-colors">
+      <div className="min-w-0 space-y-2 sm:space-y-3">
+        <h3 className="break-words font-serif text-lg font-bold leading-tight text-[#4A0E19] transition-colors group-hover:text-[#6B1626] sm:text-xl">
           {collection.title}
         </h3>
-        <p className="text-sm text-[#55504E] leading-relaxed">
+
+        <p className="break-words text-xs leading-relaxed text-[#55504E] sm:text-sm">
           {collection.description}
         </p>
       </div>
 
-      {/* Action link */}
-      <div className="pt-4 mt-2 border-t border-[#E5DAC8] flex items-center justify-between text-xs font-semibold text-[#6B1626] group-hover:text-[#4A0E19]">
-        <span>Browse Catalogue</span>
-        <span className="transform group-hover:translate-x-1 transition-transform">→</span>
+      <div className="mt-3 flex min-w-0 items-center justify-between gap-3 border-t border-[#E5DAC8] pt-3 text-xs font-semibold text-[#6B1626] transition-colors group-hover:text-[#4A0E19] sm:mt-4 sm:pt-4">
+        <span className="min-w-0 truncate">Browse Catalogue</span>
+
+        <span className="shrink-0 transform transition-transform group-hover:translate-x-1">
+          →
+        </span>
       </div>
     </div>
   );

@@ -1,13 +1,17 @@
-export default function LoadingSpinner({ message = 'Loading catalogue collection...' }) {
+export default function LoadingSpinner({
+  message = 'Loading catalogue collection...'
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-4">
-      <div className="relative w-14 h-14">
-        <div className="w-14 h-14 rounded-full border-4 border-[#E5DAC8] border-t-[#6B1626] animate-spin"></div>
-        <div className="absolute inset-0 flex items-center justify-center text-[#C5A059] text-xs font-serif">
+    <div className="flex w-full flex-col items-center justify-center px-4 py-12 sm:py-20">
+      <div className="relative h-12 w-12 sm:h-14 sm:w-14">
+        <div className="h-12 w-12 rounded-full border-4 border-[#E5DAC8] border-t-[#6B1626] animate-spin sm:h-14 sm:w-14" />
+
+        <div className="absolute inset-0 flex items-center justify-center text-xs font-serif text-[#C5A059]">
           ✦
         </div>
       </div>
-      <p className="mt-4 font-serif text-base text-[#4A0E19] tracking-wide animate-pulse">
+
+      <p className="mt-4 max-w-[90%] text-center font-serif text-sm leading-relaxed tracking-wide text-[#4A0E19] animate-pulse sm:text-base">
         {message}
       </p>
     </div>
