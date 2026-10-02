@@ -122,6 +122,9 @@ export default function Footer() {
             <a href="#about" className="transition-colors hover:text-[#C5A059]">
               Shipping Policy
             </a>
+            <Link to="/admin/login" className="transition-colors text-[#C5A059]/80 hover:text-[#E8D39E]">
+              Admin Portal 🔒
+            </Link>
           </div>
         </div>
       </div>

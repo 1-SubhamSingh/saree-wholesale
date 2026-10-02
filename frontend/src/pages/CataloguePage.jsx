@@ -5,10 +5,57 @@ import ProductCard from '../components/ProductCard';
 import SEO from '../components/common/SEO';
 import EmptyState from '../components/common/EmptyState';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { ALL_SAREES, FILTER_OPTIONS } from '../data/mockData';
+import ErrorState from '../components/common/ErrorState';
+import { getProducts } from '../services/api';
+
+const DEFAULT_CATEGORIES = [
+  'All Categories',
+  'Silk Sarees',
+  'Banarasi Weave',
+  'Designer Collection',
+  'Festive & Party',
+  'Cotton Handloom',
+  'Georgette & Chiffon',
+];
+
+const DEFAULT_FABRICS = [
+  'All Fabrics',
+  'Pure Mulberry Silk',
+  'Katan Silk Brocade',
+  'Viscose Organza',
+  'Chanderi Silk Cotton',
+  'Tussar Silk',
+  'Pure Georgette',
+  'Pure Silk',
+  'Organza',
+  'Silk',
+];
+
+const DEFAULT_COLORS = [
+  'All Colors',
+  'Crimson Red',
+  'Mustard Gold',
+  'Pastel Pink',
+  'Peacock Blue',
+  'Deep Wine',
+  'Royal Navy',
+  'Maroon',
+  'Red',
+  'Pink',
+];
+
+const SORT_OPTIONS = [
+  { label: 'Featured First', value: 'featured' },
+  { label: 'Wholesale Price: Low to High', value: 'price_asc' },
+  { label: 'Wholesale Price: High to Low', value: 'price_desc' },
+  { label: 'Catalogue Name (A-Z)', value: 'name_asc' },
+];
 
 export default function CataloguePage() {
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedFabric, setSelectedFabric] = useState('All Fabrics');
@@ -17,9 +64,28 @@ export default function CataloguePage() {
   const [sortBy, setSortBy] = useState('featured');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getProducts();
+      // Only show active products on public catalogue
+      const data = Array.isArray(response.data) ? response.data : [];
+      const activeProducts = data.filter((p) => p.active !== false);
+      setProducts(activeProducts);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      setError(
+        err.response?.data?.message ||
+          'Failed to connect to the saree wholesale catalogue. Please make sure the backend is active.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(timer);
+    fetchProducts();
   }, []);
 
   useEffect(() => {
@@ -30,7 +96,6 @@ export default function CataloguePage() {
     };
 
     window.addEventListener('keydown', onKey);
-
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
@@ -46,18 +111,37 @@ export default function CataloguePage() {
     };
   }, [mobileFilterOpen]);
 
+  // Dynamically compute available filter options from current backend products
+  const categoryOptions = useMemo(() => {
+    const fromData = products.map((p) => p.category).filter(Boolean);
+    const combined = Array.from(new Set(['All Categories', ...DEFAULT_CATEGORIES, ...fromData]));
+    return combined;
+  }, [products]);
+
+  const fabricOptions = useMemo(() => {
+    const fromData = products.map((p) => p.fabric).filter(Boolean);
+    const combined = Array.from(new Set(['All Fabrics', ...DEFAULT_FABRICS, ...fromData]));
+    return combined;
+  }, [products]);
+
+  const colorOptions = useMemo(() => {
+    const fromData = products.map((p) => p.color).filter(Boolean);
+    const combined = Array.from(new Set(['All Colors', ...DEFAULT_COLORS, ...fromData]));
+    return combined;
+  }, [products]);
+
   const filteredSarees = useMemo(() => {
-    let result = [...ALL_SAREES];
+    let result = [...products];
 
     if (searchTerm.trim() !== '') {
       const query = searchTerm.toLowerCase().trim();
 
       result = result.filter(
         (s) =>
-          s.name.toLowerCase().includes(query) ||
-          s.sku.toLowerCase().includes(query) ||
-          s.category.toLowerCase().includes(query) ||
-          s.fabric.toLowerCase().includes(query)
+          (s.name && s.name.toLowerCase().includes(query)) ||
+          (s.sku && s.sku.toLowerCase().includes(query)) ||
+          (s.category && s.category.toLowerCase().includes(query)) ||
+          (s.fabric && s.fabric.toLowerCase().includes(query))
       );
     }
 
@@ -74,29 +158,30 @@ export default function CataloguePage() {
     }
 
     if (priceRange === 'under_2000') {
-      result = result.filter((s) => s.price < 2000);
+      result = result.filter((s) => Number(s.price) < 2000);
     } else if (priceRange === '2000_3500') {
-      result = result.filter((s) => s.price >= 2000 && s.price <= 3500);
+      result = result.filter((s) => Number(s.price) >= 2000 && Number(s.price) <= 3500);
     } else if (priceRange === 'above_3500') {
-      result = result.filter((s) => s.price > 3500);
+      result = result.filter((s) => Number(s.price) > 3500);
     }
 
     if (sortBy === 'price_asc') {
-      result.sort((a, b) => a.price - b.price);
+      result.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     } else if (sortBy === 'price_desc') {
-      result.sort((a, b) => b.price - a.price);
+      result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     } else if (sortBy === 'name_asc') {
-      result.sort((a, b) => a.name.localeCompare(b.name));
+      result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
 
     return result;
   }, [
+    products,
     searchTerm,
     selectedCategory,
     selectedFabric,
     selectedColor,
     priceRange,
-    sortBy
+    sortBy,
   ]);
 
   const handleResetFilters = () => {
@@ -112,7 +197,7 @@ export default function CataloguePage() {
     selectedCategory !== 'All Categories',
     selectedFabric !== 'All Fabrics',
     selectedColor !== 'All Colors',
-    priceRange !== 'all'
+    priceRange !== 'all',
   ].filter(Boolean).length;
 
   const FilterPanel = () => (
@@ -145,7 +230,7 @@ export default function CataloguePage() {
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
-          {FILTER_OPTIONS.categories.map((cat) => (
+          {categoryOptions.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
@@ -167,7 +252,7 @@ export default function CataloguePage() {
           onChange={(e) => setSelectedFabric(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
-          {FILTER_OPTIONS.fabrics.map((fab) => (
+          {fabricOptions.map((fab) => (
             <option key={fab} value={fab}>
               {fab}
             </option>
@@ -189,7 +274,7 @@ export default function CataloguePage() {
           onChange={(e) => setSelectedColor(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
-          {FILTER_OPTIONS.colors.map((col) => (
+          {colorOptions.map((col) => (
             <option key={col} value={col}>
               {col}
             </option>
@@ -207,7 +292,7 @@ export default function CataloguePage() {
             { label: 'All Rates', value: 'all' },
             { label: 'Under ₹2,000 / pc', value: 'under_2000' },
             { label: '₹2,000 – ₹3,500 / pc', value: '2000_3500' },
-            { label: 'Above ₹3,500 / pc', value: 'above_3500' }
+            { label: 'Above ₹3,500 / pc', value: 'above_3500' },
           ].map((range) => (
             <label
               key={range.value}
@@ -234,7 +319,7 @@ export default function CataloguePage() {
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2] text-[#1F1C1D]">
       <SEO
         title="Wholesale Saree Catalogue"
-        description="Browse our complete catalogue of wholesale Kanjivaram silk, Banarasi brocades, Chanderi cotton, and designer organza sarees."
+        description="Browse our complete catalogue of wholesale Kanjivaram silk, Banarasi brocades, Chanderi cotton, and designer organza sarees directly from loom to boutique."
       />
 
       <Navbar />
@@ -247,8 +332,7 @@ export default function CataloguePage() {
             </h1>
 
             <p className="text-sm leading-relaxed text-[#55504E] sm:text-base">
-              Explore 500+ premium weaves for boutique owners, resellers, and
-              retail chains.
+              Explore authentic wholesale weaves direct from looms for boutique owners, resellers, and retail chains.
             </p>
           </div>
 
@@ -317,7 +401,7 @@ export default function CataloguePage() {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-xs font-semibold text-[#4A0E19] focus:outline-none focus:ring-1 focus:ring-[#C5A059] sm:w-auto"
                 >
-                  {FILTER_OPTIONS.sortOptions.map((opt) => (
+                  {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -354,7 +438,18 @@ export default function CataloguePage() {
               </div>
 
               {loading ? (
-                <LoadingSpinner message="Filtering wholesale catalogues..." />
+                <LoadingSpinner message="Loading authentic wholesale catalogues from loom repository..." />
+              ) : error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+                  <p className="text-sm font-semibold text-red-700">{error}</p>
+                  <button
+                    type="button"
+                    onClick={fetchProducts}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#6B1626] px-4 py-2 text-xs font-semibold text-[#FAF7F2] hover:bg-[#4A0E19]"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
               ) : filteredSarees.length === 0 ? (
                 <EmptyState onReset={handleResetFilters} />
               ) : (
