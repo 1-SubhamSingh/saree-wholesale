@@ -1,24 +1,74 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SEO from '../components/common/SEO';
 import ErrorState from '../components/common/ErrorState';
-import { ALL_SAREES } from '../data/mockData';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { getProductById } from '../services/api';
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const saree = useMemo(() => {
-    return ALL_SAREES.find((item) => item.id === id);
+  const [saree, setSaree] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getProductById(id);
+        if (isMounted) {
+          const data = response.data;
+          setSaree(data);
+          if (data?.variants && data.variants.length > 0) {
+            setSelectedVariant(data.variants[0]);
+          } else {
+            setSelectedVariant(null);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Failed to fetch product details:', err);
+          setError(
+            err.response?.status === 404
+              ? `We could not find any saree catalogue matching ID '${id}'. It may have been renamed or archived.`
+              : 'Unable to connect to the catalogue service. Please verify backend connectivity.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProduct();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
-  const [selectedVariant, setSelectedVariant] = useState(
-    saree?.variants ? saree.variants[0] : null
-  );
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2]">
+        <Navbar />
+        <main className="flex-grow py-12 sm:py-24">
+          <LoadingSpinner message="Retrieving weave specifications & wholesale bulk rates..." />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  if (!saree) {
+  if (error || !saree) {
     return (
       <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2]">
         <Navbar />
@@ -27,7 +77,10 @@ export default function ProductDetailsPage() {
           <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
             <ErrorState
               title="Saree Catalogue Not Found"
-              message={`We could not find any saree catalogue matching ID '${id}'. It may have been renamed or archived.`}
+              message={
+                error ||
+                `We could not find any saree catalogue matching ID '${id}'. It may have been renamed or archived.`
+              }
             />
           </div>
         </main>
@@ -45,11 +98,14 @@ export default function ProductDetailsPage() {
     );
   };
 
+  const hasImage = Boolean(saree.imageUrl && saree.imageUrl.trim());
+  const fallbackBg = saree.imageBg || 'bg-gradient-to-br from-[#6B1626] to-[#4A0E19]';
+
   return (
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2] text-[#1F1C1D]">
       <SEO
         title={`${saree.name} (${saree.sku})`}
-        description={`Wholesale details for ${saree.name}. Fabric: ${saree.fabric}, Category: ${saree.category}, MOQ: ${saree.minOrder}. Direct loom wholesale rate: ${saree.priceTier}.`}
+        description={`Wholesale details for ${saree.name}. Fabric: ${saree.fabric}, Category: ${saree.category}, MOQ: ${saree.minOrder}. Direct loom wholesale rate: ${saree.priceTier || `₹${saree.price} / piece`}.`}
       />
 
       <Navbar />
@@ -85,52 +141,84 @@ export default function ProductDetailsPage() {
 
           <div className="grid min-w-0 grid-cols-1 items-start gap-5 rounded-2xl border border-[#E5DAC8] bg-[#F4EFE6] p-3 shadow-sm sm:gap-8 sm:p-6 lg:grid-cols-2 lg:gap-12 lg:p-10">
             <div className="min-w-0 space-y-4 sm:space-y-6">
-              <div
-                className={`relative flex h-64 w-full flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] p-4 shadow-lg sm:h-80 sm:p-6 md:h-96 md:p-8 ${saree.imageBg}`}
-                style={{
-                  backgroundColor: selectedVariant?.hex
-                    ? `${selectedVariant.hex}dd`
-                    : undefined
-                }}
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#C5A059_1px,transparent_1px)] opacity-10 [background-size:16px_16px]" />
+              {hasImage ? (
+                <div className="relative flex h-72 w-full flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] shadow-lg sm:h-96 md:h-[450px]">
+                  <img
+                    src={saree.imageUrl}
+                    alt={saree.name}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
-                <div className="relative z-10 flex min-w-0 items-start justify-between gap-2">
-                  <span className="min-w-0 max-w-[65%] truncate rounded bg-[#FAF7F2]/90 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#4A0E19] shadow-sm backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-xs">
-                    {saree.category}
-                  </span>
+                  <div className="relative z-10 flex min-w-0 items-start justify-between gap-2 p-4">
+                    <span className="min-w-0 max-w-[65%] truncate rounded bg-[#FAF7F2]/90 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#4A0E19] shadow-sm backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-xs">
+                      {saree.category}
+                    </span>
 
-                  <span className="max-w-[40%] shrink-0 truncate rounded border border-[#C5A059]/40 bg-[#6B1626] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#E8D39E] shadow-sm sm:px-2.5 sm:py-1 sm:text-xs">
-                    {saree.badge}
-                  </span>
-                </div>
-
-                <div className="relative z-10 my-auto min-w-0 text-center">
-                  <div className="mb-2 text-4xl drop-shadow-md sm:text-6xl">
-                    🥻
+                    {saree.badge && (
+                      <span className="max-w-[40%] shrink-0 truncate rounded border border-[#C5A059]/40 bg-[#6B1626] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#E8D39E] shadow-sm sm:px-2.5 sm:py-1 sm:text-xs">
+                        {saree.badge}
+                      </span>
+                    )}
                   </div>
 
-                  <p className="truncate px-2 font-mono text-[9px] font-semibold uppercase tracking-widest text-[#E8D39E] sm:text-xs">
-                    {saree.sku}
-                  </p>
+                  <div className="relative z-10 flex min-w-0 items-center justify-between gap-3 border-t border-white/20 p-4 text-[10px] font-medium text-[#FAF7F2] sm:text-xs">
+                    <span className="min-w-0 truncate font-semibold">{saree.fabric}</span>
+                    <span className="shrink-0 font-bold text-[#E8D39E]">
+                      {saree.minOrder}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={`relative flex h-64 w-full flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] p-4 shadow-lg sm:h-80 sm:p-6 md:h-96 md:p-8 ${fallbackBg}`}
+                  style={{
+                    backgroundColor: selectedVariant?.hex
+                      ? `${selectedVariant.hex}dd`
+                      : undefined,
+                  }}
+                >
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#C5A059_1px,transparent_1px)] opacity-10 [background-size:16px_16px]" />
 
-                  {selectedVariant && (
-                    <p className="mt-1 break-words px-2 text-[9px] font-medium leading-relaxed text-[#FAF7F2]/90 sm:text-xs">
-                      Selected Tone:{' '}
-                      <span className="font-bold text-[#E8D39E]">
-                        {selectedVariant.name}
+                  <div className="relative z-10 flex min-w-0 items-start justify-between gap-2">
+                    <span className="min-w-0 max-w-[65%] truncate rounded bg-[#FAF7F2]/90 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#4A0E19] shadow-sm backdrop-blur-sm sm:px-2.5 sm:py-1 sm:text-xs">
+                      {saree.category}
+                    </span>
+
+                    {saree.badge && (
+                      <span className="max-w-[40%] shrink-0 truncate rounded border border-[#C5A059]/40 bg-[#6B1626] px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#E8D39E] shadow-sm sm:px-2.5 sm:py-1 sm:text-xs">
+                        {saree.badge}
                       </span>
-                    </p>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <div className="relative z-10 flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-2 text-[9px] font-medium text-[#FAF7F2] sm:pt-3 sm:text-xs">
-                  <span className="min-w-0 truncate">{saree.fabric}</span>
-                  <span className="shrink-0 font-bold text-[#E8D39E]">
-                    {saree.minOrder}
-                  </span>
+                  <div className="relative z-10 my-auto min-w-0 text-center">
+                    <div className="mb-2 text-4xl drop-shadow-md sm:text-6xl">
+                      🥻
+                    </div>
+
+                    <p className="truncate px-2 font-mono text-[9px] font-semibold uppercase tracking-widest text-[#E8D39E] sm:text-xs">
+                      {saree.sku}
+                    </p>
+
+                    {selectedVariant && (
+                      <p className="mt-1 break-words px-2 text-[9px] font-medium leading-relaxed text-[#FAF7F2]/90 sm:text-xs">
+                        Selected Tone:{' '}
+                        <span className="font-bold text-[#E8D39E]">
+                          {selectedVariant.name}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="relative z-10 flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-2 text-[9px] font-medium text-[#FAF7F2] sm:pt-3 sm:text-xs">
+                    <span className="min-w-0 truncate">{saree.fabric}</span>
+                    <span className="shrink-0 font-bold text-[#E8D39E]">
+                      {saree.minOrder}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {saree.variants && saree.variants.length > 0 && (
                 <div className="space-y-3 rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-3 sm:p-4">
@@ -153,7 +241,7 @@ export default function ProductDetailsPage() {
                       >
                         <span
                           className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/50 sm:h-4 sm:w-4"
-                          style={{ backgroundColor: v.hex }}
+                          style={{ backgroundColor: v.hex || '#6B1626' }}
                         />
 
                         <span className="max-w-[180px] truncate sm:max-w-none">
@@ -184,7 +272,7 @@ export default function ProductDetailsPage() {
                   </p>
 
                   <p className="break-words font-sans text-lg font-bold text-[#6B1626] sm:text-2xl">
-                    {saree.priceTier}
+                    {saree.priceTier || `₹${Number(saree.price).toLocaleString('en-IN')} / piece`}
                   </p>
                 </div>
 
@@ -194,7 +282,7 @@ export default function ProductDetailsPage() {
                   </p>
 
                   <p className="inline-block max-w-full break-words rounded border border-[#C5A059]/30 bg-[#E8D39E]/30 px-3 py-1 text-xs font-bold text-[#4A0E19]">
-                    {saree.minOrder}
+                    {saree.minOrder || '10 Pieces (Set)'}
                   </p>
                 </div>
               </div>
@@ -205,7 +293,7 @@ export default function ProductDetailsPage() {
                 </h3>
 
                 <p className="break-words text-xs leading-relaxed text-[#55504E] sm:text-sm">
-                  {saree.description}
+                  {saree.description || 'Authentic handloom weave crafted for wholesale showrooms and retail boutiques.'}
                 </p>
               </div>
 
@@ -232,21 +320,25 @@ export default function ProductDetailsPage() {
                   <div className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <span className="text-[#55504E]">Saree Cut Length</span>
                     <span className="break-words font-bold text-[#1F1C1D] sm:text-right">
-                      {saree.sareeLength}
+                      {saree.sareeLength || '6.3 Meters with Blouse Piece'}
                     </span>
                   </div>
 
                   <div className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <span className="text-[#55504E]">Blouse Attachment</span>
                     <span className="break-words font-bold text-[#1F1C1D] sm:text-right">
-                      {saree.blouseIncluded}
+                      {typeof saree.blouseIncluded === 'boolean'
+                        ? saree.blouseIncluded
+                          ? 'Included (Unstitched matching fabric)'
+                          : 'Not Included'
+                        : saree.blouseIncluded || 'Included'}
                     </span>
                   </div>
 
                   <div className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <span className="text-[#55504E]">Care Recommendation</span>
                     <span className="break-words font-bold text-[#1F1C1D] sm:text-right">
-                      {saree.careInstructions}
+                      {saree.careInstructions || 'Dry Clean Recommended'}
                     </span>
                   </div>
                 </div>

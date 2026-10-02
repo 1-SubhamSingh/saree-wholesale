@@ -3,13 +3,14 @@ import { useSearchParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SEO from '../components/common/SEO';
-import { ALL_SAREES } from '../data/mockData';
+import { getProducts, submitEnquiry } from '../services/api';
 
 export default function EnquiryPage() {
   const [searchParams] = useSearchParams();
   const initialProduct = searchParams.get('product') || '';
   const initialSku = searchParams.get('sku') || '';
 
+  const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
@@ -27,6 +28,20 @@ export default function EnquiryPage() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  useEffect(() => {
+    // Load active products from backend for product dropdown
+    getProducts()
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setProducts(res.data.filter((p) => p.active !== false));
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch products for enquiry dropdown:', err);
+      });
+  }, []);
 
   useEffect(() => {
     if (initialProduct && !formData.selectedProduct) {
@@ -86,17 +101,34 @@ export default function EnquiryPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate()) return;
 
     setSubmitting(true);
+    setSubmitError(null);
 
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await submitEnquiry({
+        fullName: formData.fullName.trim(),
+        businessName: formData.businessName.trim(),
+        phone: formData.phone.trim(),
+        city: formData.city.trim(),
+        selectedProduct: formData.selectedProduct || 'General Wholesale Inquiry',
+        quantity: formData.quantity,
+        message: formData.message.trim(),
+      });
       setSubmitted(true);
-    }, 600);
+    } catch (err) {
+      console.error('Failed to submit enquiry:', err);
+      setSubmitError(
+        err.response?.data?.message ||
+          'Failed to send enquiry. Please check your network connection and try again.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -112,6 +144,7 @@ export default function EnquiryPage() {
 
     setErrors({});
     setSubmitted(false);
+    setSubmitError(null);
   };
 
   const inputClass = (error) =>
@@ -142,8 +175,7 @@ export default function EnquiryPage() {
             </h1>
 
             <p className="mx-auto max-w-xl text-sm leading-relaxed text-[#55504E] sm:text-base">
-              Fill out the form below to receive catalogue PDFs, volume price
-              slabs, and swatch boxes.
+              Fill out the form below to receive catalogue PDFs, volume price slabs, and swatch boxes.
             </p>
           </div>
 
@@ -164,7 +196,7 @@ export default function EnquiryPage() {
                     <strong className="text-[#1F1C1D]">
                       {formData.fullName}
                     </strong>{' '}
-                    ({formData.businessName}). Our B2B executive will contact
+                    ({formData.businessName}). Our B2B executive will review your request and contact
                     you on{' '}
                     <strong className="text-[#6B1626]">
                       {formData.phone}
@@ -192,6 +224,12 @@ export default function EnquiryPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {submitError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
+                    {submitError}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
                   <div className="min-w-0 space-y-1.5">
                     <label
@@ -349,7 +387,7 @@ export default function EnquiryPage() {
                         General Wholesale Inquiry (All Catalogues)
                       </option>
 
-                      {ALL_SAREES.map((s) => (
+                      {products.map((s) => (
                         <option
                           key={s.id}
                           value={`${s.name} (${s.sku})`}
@@ -379,52 +417,68 @@ export default function EnquiryPage() {
                       <option value="5 Sets">
                         5 - 10 Sets (Trial Pack)
                       </option>
-                      <option value="15 Sets">
-                        15 - 30 Sets (Boutique Order)
+                      <option value="10-25 Sets">
+                        10 - 25 Sets (Boutique Stock)
+                      </option>
+                      <option value="25-50 Sets">
+                        25 - 50 Sets (Showroom Batch)
                       </option>
                       <option value="50+ Sets">
-                        50+ Sets (Showroom Bulk)
-                      </option>
-                      <option value="Custom Order">
-                        Custom Weaving / Export Bulk
+                        50+ Sets (Wholesale / Bulk Export)
                       </option>
                     </select>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="min-w-0 space-y-1.5">
                   <label
                     htmlFor="message"
                     className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
                   >
-                    Message / Special Customization Request
+                    Custom Requirements / Specific Weave Inquiries
                   </label>
 
                   <textarea
                     id="message"
-                    rows={5}
                     name="message"
-                    placeholder="Provide details about your required color variants, target price point, or delivery timeline..."
+                    rows={4}
+                    placeholder="Tell us about your boutique location, GST status, required colors, or custom packaging needs..."
                     value={formData.message}
                     onChange={handleChange}
-                    className="w-full resize-y rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    className="w-full rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F1C1D] transition-all focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#C5A059]/40 bg-[#6B1626] px-4 py-4 text-center text-sm font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-md transition-all hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#C5A059]/40 bg-[#6B1626] px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider text-[#FAF7F2] shadow-lg transition-all hover:bg-[#4A0E19] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2 disabled:opacity-60"
                 >
                   {submitting ? (
-                    <>
-                      <div className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      <span className="truncate">
-                        Submitting B2B Request...
-                      </span>
-                    </>
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Submitting Enquiry...
+                    </span>
                   ) : (
-                    <span>Submit Wholesale Enquiry</span>
+                    'Submit Wholesale Enquiry ➔'
                   )}
                 </button>
               </form>
