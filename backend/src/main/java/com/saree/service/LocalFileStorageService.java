@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -24,9 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
  * via the {@code app.upload.dir} property or the {@code UPLOAD_DIR} env var).
  * <p>
  * The upload directory is created on startup if it does not already exist.
- * Files are given a UUID-prefixed name to guarantee uniqueness and prevent
- * filename-guessing attacks. The original extension is preserved for correct
- * MIME sniffing by browsers.
+ * Files are given a UUID-prefixed name with an extension derived from the
+ * validated MIME type to guarantee uniqueness and prevent unsafe extensions.
  * <p>
  * Security hardening applied:
  * <ul>
@@ -102,9 +100,7 @@ public class LocalFileStorageService implements StorageService {
                     file.getSize() + " bytes).");
         }
 
-        // Derive a safe extension from the original filename
-        String originalFilename = StringUtils.cleanPath(
-                file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload");
+        // Derive a safe extension only from the validated MIME type
         String ext = deriveExtension(contentType.toLowerCase());
         String storedFilename = UUID.randomUUID() + ext;
 
