@@ -11,9 +11,11 @@ import com.saree.repository.ProductRepository;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final StorageService storageService;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, StorageService storageService) {
         this.productRepository = productRepository;
+        this.storageService = storageService;
     }
 
     public List<Product> getAllProducts() {
@@ -29,11 +31,21 @@ public class ProductService {
     }
 
     public Product updateProduct(String id, Product product) {
+        Product existing = productRepository.findById(id).orElse(null);
         product.setId(id);
-        return productRepository.save(product);
+        Product updated = productRepository.save(product);
+        if (existing != null && existing.getImageUrl() != null
+                && !existing.getImageUrl().equals(product.getImageUrl())) {
+            storageService.delete(existing.getImageUrl());
+        }
+        return updated;
     }
 
     public void deleteProduct(String id) {
+        Product existing = productRepository.findById(id).orElse(null);
         productRepository.deleteById(id);
+        if (existing != null) {
+            storageService.delete(existing.getImageUrl());
+        }
     }
 }
