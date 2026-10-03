@@ -84,4 +84,24 @@ class ProductServiceTest {
         verify(repository).deleteById("1");
         verify(storageService).delete(null);
     }
+
+    @Test
+    void handlesExistingExternalImageUrlProduct() {
+        Product existing = new Product();
+        existing.setId("legacy-1");
+        existing.setImageUrl("https://images.unsplash.com/photo-legacy");
+
+        Product updated = new Product();
+        updated.setId("legacy-1");
+        updated.setImageUrl("https://images.unsplash.com/photo-legacy-v2");
+
+        when(repository.findById("legacy-1")).thenReturn(Optional.of(existing));
+        when(repository.save(updated)).thenReturn(updated);
+
+        Product result = service.updateProduct("legacy-1", updated);
+
+        assertNotNull(result);
+        assertEquals("https://images.unsplash.com/photo-legacy-v2", result.getImageUrl());
+        verify(storageService).delete("https://images.unsplash.com/photo-legacy");
+    }
 }

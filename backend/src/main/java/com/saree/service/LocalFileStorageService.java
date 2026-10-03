@@ -66,6 +66,7 @@ public class LocalFileStorageService implements StorageService {
         this(uploadDir, "http://localhost:8080");
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public LocalFileStorageService(
             @Value("${app.upload.dir:./uploads}") String uploadDir,
             @Value("${app.public-url:http://localhost:8080}") String publicUrl) {
