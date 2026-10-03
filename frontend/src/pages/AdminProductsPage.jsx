@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SEO from '../components/common/SEO';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import CameraCaptureModal from '../components/common/CameraCaptureModal';
 import {
   adminGetProducts,
   adminCreateProduct,
@@ -78,22 +79,15 @@ export default function AdminProductsPage() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const fileInputRef = useRef(null);
+  const mobileCameraInputRef = useRef(null);
 
   // Variant input inside modal
   const [newVariantName, setNewVariantName] = useState('');
   const [newVariantHex, setNewVariantHex] = useState('#6B1626');
 
-  // Check auth
-  useEffect(() => {
-    const token = localStorage.getItem('saree_admin_token');
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
-    fetchProducts();
-  }, [navigate]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoadingProducts(true);
       setProductsError(null);
@@ -110,7 +104,17 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingProducts(false);
     }
-  };
+  }, [navigate]);
+
+  // Check auth
+  useEffect(() => {
+    const token = localStorage.getItem('saree_admin_token');
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
+    fetchProducts();
+  }, [navigate, fetchProducts]);
 
   const fetchEnquiries = async () => {
     try {
@@ -773,20 +777,85 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
-                    Product Image
-                  </label>
-                  <div className="mt-1 rounded-xl border border-dashed border-[#C5A059] bg-[#F4EFE6] p-4">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
+                      Product Image
+                    </label>
                     {imagePreview && (
-                      <div className="mb-3 overflow-hidden rounded-lg border border-[#E5DAC8] bg-[#FAF7F2]">
-                        <img src={imagePreview} alt="Product preview" className="h-48 w-full object-contain" />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageFile(null);
+                          setImagePreview('');
+                          setFormData((prev) => ({ ...prev, imageUrl: '' }));
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                          if (mobileCameraInputRef.current) mobileCameraInputRef.current.value = '';
+                        }}
+                        className="text-[11px] font-semibold text-red-600 hover:text-red-800 hover:underline"
+                      >
+                        Remove Image
+                      </button>
                     )}
+                  </div>
+
+                  <div className="mt-1 rounded-xl border border-dashed border-[#C5A059] bg-[#F4EFE6] p-4">
+                    {imagePreview ? (
+                      <div className="relative mb-3 overflow-hidden rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] p-2">
+                        <img
+                          src={imagePreview}
+                          alt="Product preview"
+                          className="h-52 w-full rounded-md object-contain"
+                        />
+                        {imageFile && (
+                          <span className="absolute bottom-4 left-4 rounded-full bg-[#6B1626] px-2.5 py-1 text-[10px] font-semibold text-white shadow-md">
+                            Ready to upload: {imageFile.name}
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Camera and Upload Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Button 1: Live Webcam / Phone Camera Viewfinder */}
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraOpen(true)}
+                        className="flex items-center gap-1.5 rounded-lg bg-[#6B1626] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#52111d] active:scale-98"
+                      >
+                        <span className="text-sm">📷</span>
+                        <span>Open Camera / Webcam</span>
+                      </button>
+
+                      {/* Button 2: Direct Phone Native Camera */}
+                      <button
+                        type="button"
+                        onClick={() => mobileCameraInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#C5A059] bg-[#FAF7F2] px-3 py-2 text-xs font-semibold text-[#4A0E19] transition hover:bg-[#F4EFE6] active:scale-98"
+                      >
+                        <span className="text-sm">📱</span>
+                        <span>Phone Camera (Direct)</span>
+                      </button>
+
+                      {/* Button 3: Browse Files */}
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-medium text-[#55504E] transition hover:bg-[#FAF7F2] hover:text-[#4A0E19] active:scale-98"
+                      >
+                        <span className="text-sm">📁</span>
+                        <span>Upload from Files</span>
+                      </button>
+                    </div>
+
+                    {/* Hidden Native File & Camera Inputs */}
                     <input
+                      ref={fileInputRef}
                       type="file"
                       accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
+                        if (!file) return;
                         const error = validateImageFile(file);
                         if (error) {
                           setFormError(error);
@@ -797,9 +866,32 @@ export default function AdminProductsPage() {
                         setImageFile(file);
                         setImagePreview(URL.createObjectURL(file));
                       }}
-                      className="block w-full text-xs text-[#55504E] file:mr-3 file:rounded-md file:border-0 file:bg-[#6B1626] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
                     />
-                    <p className="mt-2 text-[11px] text-[#55504E]">JPEG, PNG, WebP or GIF · maximum 5 MB. Preview is shown before saving.</p>
+
+                    <input
+                      ref={mobileCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const error = validateImageFile(file);
+                        if (error) {
+                          setFormError(error);
+                          setImageFile(null);
+                          return;
+                        }
+                        setFormError(null);
+                        setImageFile(file);
+                        setImagePreview(URL.createObjectURL(file));
+                      }}
+                    />
+
+                    <p className="mt-2 text-[11px] text-[#55504E]">
+                      Take a photo with your webcam / phone camera, or choose a file (JPEG, PNG, WebP, GIF up to 5 MB).
+                    </p>
                   </div>
                 </div>
 
@@ -937,6 +1029,17 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+
+      {/* Live Camera Viewfinder Modal */}
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={(file, previewUrl) => {
+          setFormError(null);
+          setImageFile(file);
+          setImagePreview(previewUrl);
+        }}
+      />
     </div>
   );
 }
