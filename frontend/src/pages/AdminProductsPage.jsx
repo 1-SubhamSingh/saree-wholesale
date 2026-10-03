@@ -10,6 +10,7 @@ import {
   adminGetEnquiries,
   adminUpdateEnquiryStatus,
 } from '../services/api';
+import { uploadProductImage, validateImageFile } from '../services/imageUpload';
 
 const DEFAULT_CATEGORIES = [
   'Silk Sarees',
@@ -74,6 +75,9 @@ export default function AdminProductsPage() {
   const [formData, setFormData] = useState(EMPTY_PRODUCT_FORM);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Variant input inside modal
   const [newVariantName, setNewVariantName] = useState('');
@@ -138,7 +142,11 @@ export default function AdminProductsPage() {
   const handleOpenCreate = () => {
     setIsEditing(false);
     setCurrentProductId(null);
-    setFormData(EMPTY_PRODUCT_FORM);
+    setFormData({ ...EMPTY_PRODUCT_FORM });
+    setImageFile(null);
+    setImagePreview('');
+    setImageFile(null);
+    setImagePreview(prod.imageUrl || '');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -232,6 +240,12 @@ export default function AdminProductsPage() {
     };
 
     try {
+      if (imageFile) {
+        setImageUploading(true);
+        const uploadRes = await uploadProductImage(imageFile);
+        payload.imageUrl = uploadRes.data.imageUrl;
+      }
+
       if (isEditing) {
         const res = await adminUpdateProduct(currentProductId, payload);
         setProducts((prev) =>
@@ -247,6 +261,7 @@ export default function AdminProductsPage() {
       setFormError(err.response?.data?.message || 'Failed to save product catalogue.');
     } finally {
       setFormSubmitting(false);
+      setImageUploading(false);
     }
   };
 
@@ -759,7 +774,38 @@ export default function AdminProductsPage() {
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
-                    Product Image URL
+                    Product Image
+                  </label>
+                  <div className="mt-1 rounded-xl border border-dashed border-[#C5A059] bg-[#F4EFE6] p-4">
+                    {imagePreview && (
+                      <div className="mb-3 overflow-hidden rounded-lg border border-[#E5DAC8] bg-[#FAF7F2]">
+                        <img src={imagePreview} alt="Product preview" className="h-48 w-full object-contain" />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        const error = validateImageFile(file);
+                        if (error) {
+                          setFormError(error);
+                          setImageFile(null);
+                          return;
+                        }
+                        setFormError(null);
+                        setImageFile(file);
+                        setImagePreview(URL.createObjectURL(file));
+                      }}
+                      className="block w-full text-xs text-[#55504E] file:mr-3 file:rounded-md file:border-0 file:bg-[#6B1626] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+                    />
+                    <p className="mt-2 text-[11px] text-[#55504E]">JPEG, PNG, WebP or GIF · maximum 5 MB. Preview is shown before saving.</p>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
+                    Existing / External Image URL
                   </label>
                   <input
                     type="url"
@@ -880,8 +926,8 @@ export default function AdminProductsPage() {
                   disabled={formSubmitting}
                   className="rounded-lg bg-[#6B1626] px-5 py-2 text-xs font-bold uppercase tracking-wider text-[#FAF7F2] hover:bg-[#4A0E19] disabled:opacity-60"
                 >
-                  {formSubmitting
-                    ? 'Saving...'
+                  {formSubmitting || imageUploading
+                    ? imageUploading ? 'Uploading image...' : 'Saving...'
                     : isEditing
                     ? 'Update Catalogue'
                     : 'Create Product'}
