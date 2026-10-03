@@ -5,7 +5,6 @@ import ProductCard from '../components/ProductCard';
 import SEO from '../components/common/SEO';
 import EmptyState from '../components/common/EmptyState';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import ErrorState from '../components/common/ErrorState';
 import { getProducts } from '../services/api';
 
 const DEFAULT_CATEGORIES = [

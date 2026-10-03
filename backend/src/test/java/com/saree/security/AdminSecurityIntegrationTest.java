@@ -7,6 +7,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.mock.web.MockMultipartFile;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -200,5 +204,41 @@ class AdminSecurityIntegrationTest {
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    // --- 6. Image Upload & Static Serving End-to-End Tests ---
+
+    @Test
+    void imageUpload_withoutAuth_returns401() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "test.png", "image/png",
+                new byte[]{(byte)0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3});
+
+        mockMvc.perform(multipart("/api/admin/products/upload-image").file(file))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void imageUpload_withAdminAuth_succeedsAndCanBeFetchedPublicly() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "test-product.png", "image/png",
+                new byte[]{(byte)0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3});
+
+        String responseJson = mockMvc.perform(multipart("/api/admin/products/upload-image")
+                        .file(file)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageUrl").isString())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(responseJson);
+        String fullUrl = node.get("imageUrl").asText();
+        String uploadPath = fullUrl.substring(fullUrl.indexOf("/api/uploads/"));
+
+        // Verify that the uploaded file can be served without authentication
+        mockMvc.perform(get(uploadPath))
+                .andExpect(status().isOk());
     }
 }
