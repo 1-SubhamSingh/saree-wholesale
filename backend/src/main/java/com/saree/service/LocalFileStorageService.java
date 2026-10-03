@@ -62,6 +62,10 @@ public class LocalFileStorageService implements StorageService {
 
     /** The publicly reachable base URL of the backend (for building absolute URLs). */
 
+    public LocalFileStorageService(String uploadDir) {
+        this(uploadDir, "http://localhost:8080");
+    }
+
     public LocalFileStorageService(
             @Value("${app.upload.dir:./uploads}") String uploadDir,
             @Value("${app.public-url:http://localhost:8080}") String publicUrl) {
