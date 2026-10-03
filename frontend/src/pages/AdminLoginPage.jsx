@@ -6,7 +6,7 @@ import { adminLogin } from '../services/api';
 export default function AdminLoginPage() {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({
-    username: 'admin',
+    username: 'admin1',
     password: '',
   });
   const [error, setError] = useState(null);
@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
         setError('Login failed: Token not received.');
       }
     } catch (err) {
-      console.error('Admin login error:', err);
+      console.error('Admin login error:', err?.message || 'Authentication error');
       setError(err.response?.data?.message || 'Invalid credentials or server unavailable.');
     } finally {
       setLoading(false);
@@ -87,7 +87,7 @@ export default function AdminLoginPage() {
                 required
                 value={credentials.username}
                 onChange={handleChange}
-                placeholder="admin"
+                placeholder="admin1"
                 className="mt-1.5 min-h-11 w-full rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-4 py-2.5 text-sm text-[#1F1C1D] transition-colors focus:border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
               />
             </div>
