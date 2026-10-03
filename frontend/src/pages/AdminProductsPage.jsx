@@ -145,8 +145,6 @@ export default function AdminProductsPage() {
     setFormData({ ...EMPTY_PRODUCT_FORM });
     setImageFile(null);
     setImagePreview('');
-    setImageFile(null);
-    setImagePreview(prod.imageUrl || '');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -173,6 +171,8 @@ export default function AdminProductsPage() {
       active: prod.active !== false,
       variants: Array.isArray(prod.variants) ? prod.variants : [],
     });
+    setImageFile(null);
+    setImagePreview(prod.imageUrl || '');
     setFormError(null);
     setIsModalOpen(true);
   };
