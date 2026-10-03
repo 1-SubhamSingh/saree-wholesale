@@ -304,6 +304,7 @@ export default function AdminProductsPage() {
             <button
               onClick={() => {
                 localStorage.removeItem('saree_admin_token');
+                localStorage.removeItem('saree_admin_user');
                 navigate('/admin/login');
               }}
               className="rounded-lg bg-[#6B1626] px-3 py-1.5 text-xs font-semibold text-[#FAF7F2] hover:bg-[#4A0E19]"

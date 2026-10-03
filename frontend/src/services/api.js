@@ -21,6 +21,26 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response interceptor to handle 401 unauthorized / expired JWT sessions
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('saree_admin_token');
+      localStorage.removeItem('saree_admin_user');
+      // If user was on an admin page other than login, redirect to login
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname.startsWith('/admin') &&
+        window.location.pathname !== '/admin/login'
+      ) {
+        window.location.href = '/admin/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Public Product APIs
 export const getProducts = () => api.get('/products');
 export const getProductById = (id) => api.get(`/products/${id}`);
