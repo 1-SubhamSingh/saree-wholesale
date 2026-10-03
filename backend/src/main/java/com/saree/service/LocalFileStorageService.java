@@ -1,6 +1,7 @@
 package com.saree.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -90,6 +91,10 @@ public class LocalFileStorageService implements StorageService {
                     ". Allowed: JPEG, PNG, WebP, GIF.");
         }
 
+        if (!hasValidImageSignature(file, contentType.toLowerCase())) {
+            throw new IllegalArgumentException("Uploaded file content does not match its image type.");
+        }
+
         // Size guard
         if (file.getSize() > MAX_SIZE_BYTES) {
             throw new IllegalArgumentException(
@@ -100,7 +105,7 @@ public class LocalFileStorageService implements StorageService {
         // Derive a safe extension from the original filename
         String originalFilename = StringUtils.cleanPath(
                 file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload");
-        String ext = deriveExtension(originalFilename, contentType);
+        String ext = deriveExtension(contentType.toLowerCase());
         String storedFilename = UUID.randomUUID() + ext;
 
         // Path-traversal guard
@@ -151,22 +156,35 @@ public class LocalFileStorageService implements StorageService {
 
     // -----------------------------------------------------------------------
 
-    /** Extract a lowercase extension from the filename; fall back to MIME type. */
-    private String deriveExtension(String originalFilename, String contentType) {
-        int dot = originalFilename.lastIndexOf('.');
-        if (dot >= 0) {
-            String raw = originalFilename.substring(dot).toLowerCase();
-            if (raw.matches("\\.[a-z0-9]{2,5}")) {
-                return raw;
-            }
-        }
-        // Derive from MIME if filename has no usable extension
-        return switch (contentType.toLowerCase()) {
+    private String deriveExtension(String contentType) {
+        return switch (contentType) {
             case "image/jpeg" -> ".jpg";
-            case "image/png"  -> ".png";
+            case "image/png" -> ".png";
             case "image/webp" -> ".webp";
-            case "image/gif"  -> ".gif";
-            default           -> ".jpg";
+            case "image/gif" -> ".gif";
+            default -> throw new IllegalArgumentException("Unsupported image type: " + contentType);
         };
+    }
+
+    private boolean hasValidImageSignature(MultipartFile file, String contentType) {
+        try (InputStream in = file.getInputStream()) {
+            byte[] h = in.readNBytes(12);
+            if ("image/jpeg".equals(contentType)) {
+                return h.length >= 3 && (h[0] & 0xff) == 0xff && (h[1] & 0xff) == 0xd8 && (h[2] & 0xff) == 0xff;
+            }
+            if ("image/png".equals(contentType)) {
+                return h.length >= 8 && (h[0] & 0xff) == 0x89 && h[1] == 0x50 && h[2] == 0x4e && h[3] == 0x47
+                        && h[4] == 0x0d && h[5] == 0x0a && h[6] == 0x1a && h[7] == 0x0a;
+            }
+            if ("image/gif".equals(contentType)) {
+                return h.length >= 6 && ((h[0] == 'G' && h[1] == 'I' && h[2] == 'F'
+                        && h[3] == '8' && (h[4] == '7' || h[4] == '9') && h[5] == 'a'));
+            }
+            return "image/webp".equals(contentType) && h.length >= 12
+                    && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+                    && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P';
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Unable to validate image content.", e);
+        }
     }
 }
