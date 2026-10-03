@@ -58,14 +58,15 @@ public class LocalFileStorageService implements StorageService {
     private static final String URL_PREFIX = "/api/uploads/";
 
     private final Path uploadRoot;
+    private final String publicUrl;
 
     /** The publicly reachable base URL of the backend (for building absolute URLs). */
-    @Value("${app.public-url:http://localhost:8080}")
-    private String publicUrl;
 
     public LocalFileStorageService(
-            @Value("${app.upload.dir:./uploads}") String uploadDir) {
+            @Value("${app.upload.dir:./uploads}") String uploadDir,
+            @Value("${app.public-url:http://localhost:8080}") String publicUrl) {
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.publicUrl = publicUrl == null || publicUrl.isBlank() ? "http://localhost:8080" : publicUrl;
         try {
             Files.createDirectories(this.uploadRoot);
             log.info("Upload directory initialised at: {}", this.uploadRoot);
