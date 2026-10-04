@@ -219,4 +219,27 @@ class ProductPaginationIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(0))
                 .andExpect(jsonPath("$.content", hasSize(0)));
     }
+
+    @Test
+    @DisplayName("Active products endpoint returns public active products")
+    void testActiveProductsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/products/active"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(25))))
+                .andExpect(jsonPath("$[*].active", everyItem(not(false))))
+                .andExpect(jsonPath("$[*].name", not(hasItem("Inactive Archive Saree"))));
+    }
+
+    @Test
+    @DisplayName("Filter options endpoint returns distinct public catalogue values")
+    void testFilterOptionsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/products/filters"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories", hasItem("Banarasi Weave")))
+                .andExpect(jsonPath("$.categories", hasItem("Silk Sarees")))
+                .andExpect(jsonPath("$.fabrics", hasItem("Katan Silk Brocade")))
+                .andExpect(jsonPath("$.fabrics", hasItem("Pure Mulberry Silk")))
+                .andExpect(jsonPath("$.colors", hasItem("Mustard Gold")))
+                .andExpect(jsonPath("$.colors", hasItem("Crimson Red")));
+    }
 }
