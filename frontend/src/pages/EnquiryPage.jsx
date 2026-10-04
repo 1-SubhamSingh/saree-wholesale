@@ -32,11 +32,10 @@ export default function EnquiryPage() {
 
   useEffect(() => {
     // Load active products from backend for product dropdown
-    getProducts()
+    getProducts({ size: 100 })
       .then((res) => {
-        if (Array.isArray(res.data)) {
-          setProducts(res.data.filter((p) => p.active !== false));
-        }
+        const list = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+        setProducts(list.filter((p) => p.active !== false));
       })
       .catch((err) => {
         console.warn('Could not fetch products for enquiry dropdown:', err);

@@ -104,4 +104,17 @@ class ProductServiceTest {
         assertEquals("https://images.unsplash.com/photo-legacy-v2", result.getImageUrl());
         verify(storageService).delete("https://images.unsplash.com/photo-legacy");
     }
+
+    @Test
+    void getProducts_fallsBackToRepositoryWhenMongoTemplateNull() {
+        org.springframework.data.domain.Page<Product> mockPage = new org.springframework.data.domain.PageImpl<>(java.util.List.of(new Product()));
+        when(repository.findAll(any(org.springframework.data.domain.Pageable.class))).thenReturn(mockPage);
+
+        org.springframework.data.domain.Page<Product> result = service.getProducts(
+                0, 12, null, null, null, null, null, null, null, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(repository).findAll(any(org.springframework.data.domain.Pageable.class));
+    }
 }

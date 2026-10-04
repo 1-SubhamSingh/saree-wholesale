@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
@@ -50,156 +50,23 @@ const SORT_OPTIONS = [
   { label: 'Catalogue Name (A-Z)', value: 'name_asc' },
 ];
 
-export default function CataloguePage() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const PAGE_SIZE = 12;
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [selectedFabric, setSelectedFabric] = useState('All Fabrics');
-  const [selectedColor, setSelectedColor] = useState('All Colors');
-  const [priceRange, setPriceRange] = useState('all');
-  const [sortBy, setSortBy] = useState('featured');
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await getProducts();
-      // Only show active products on public catalogue
-      const data = Array.isArray(response.data) ? response.data : [];
-      const activeProducts = data.filter((p) => p.active !== false);
-      setProducts(activeProducts);
-    } catch (err) {
-      console.error('Failed to load products:', err);
-      setError(
-        err.response?.data?.message ||
-          'Failed to connect to the saree wholesale catalogue. Please make sure the backend is active.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setMobileFilterOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  useEffect(() => {
-    if (mobileFilterOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [mobileFilterOpen]);
-
-  // Dynamically compute available filter options from current backend products
-  const categoryOptions = useMemo(() => {
-    const fromData = products.map((p) => p.category).filter(Boolean);
-    const combined = Array.from(new Set(['All Categories', ...DEFAULT_CATEGORIES, ...fromData]));
-    return combined;
-  }, [products]);
-
-  const fabricOptions = useMemo(() => {
-    const fromData = products.map((p) => p.fabric).filter(Boolean);
-    const combined = Array.from(new Set(['All Fabrics', ...DEFAULT_FABRICS, ...fromData]));
-    return combined;
-  }, [products]);
-
-  const colorOptions = useMemo(() => {
-    const fromData = products.map((p) => p.color).filter(Boolean);
-    const combined = Array.from(new Set(['All Colors', ...DEFAULT_COLORS, ...fromData]));
-    return combined;
-  }, [products]);
-
-  const filteredSarees = useMemo(() => {
-    let result = [...products];
-
-    if (searchTerm.trim() !== '') {
-      const query = searchTerm.toLowerCase().trim();
-
-      result = result.filter(
-        (s) =>
-          (s.name && s.name.toLowerCase().includes(query)) ||
-          (s.sku && s.sku.toLowerCase().includes(query)) ||
-          (s.category && s.category.toLowerCase().includes(query)) ||
-          (s.fabric && s.fabric.toLowerCase().includes(query))
-      );
-    }
-
-    if (selectedCategory !== 'All Categories') {
-      result = result.filter((s) => s.category === selectedCategory);
-    }
-
-    if (selectedFabric !== 'All Fabrics') {
-      result = result.filter((s) => s.fabric === selectedFabric);
-    }
-
-    if (selectedColor !== 'All Colors') {
-      result = result.filter((s) => s.color === selectedColor);
-    }
-
-    if (priceRange === 'under_2000') {
-      result = result.filter((s) => Number(s.price) < 2000);
-    } else if (priceRange === '2000_3500') {
-      result = result.filter((s) => Number(s.price) >= 2000 && Number(s.price) <= 3500);
-    } else if (priceRange === 'above_3500') {
-      result = result.filter((s) => Number(s.price) > 3500);
-    }
-
-    if (sortBy === 'price_asc') {
-      result.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-    } else if (sortBy === 'price_desc') {
-      result.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
-    } else if (sortBy === 'name_asc') {
-      result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }
-
-    return result;
-  }, [
-    products,
-    searchTerm,
-    selectedCategory,
-    selectedFabric,
-    selectedColor,
-    priceRange,
-    sortBy,
-  ]);
-
-  const handleResetFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('All Categories');
-    setSelectedFabric('All Fabrics');
-    setSelectedColor('All Colors');
-    setPriceRange('all');
-    setSortBy('featured');
-  };
-
-  const activeFilterCount = [
-    selectedCategory !== 'All Categories',
-    selectedFabric !== 'All Fabrics',
-    selectedColor !== 'All Colors',
-    priceRange !== 'all',
-  ].filter(Boolean).length;
-
-  const FilterPanel = () => (
+function FilterPanelContent({
+  categoryOptions,
+  selectedCategory,
+  onSelectCategory,
+  fabricOptions,
+  selectedFabric,
+  onSelectFabric,
+  colorOptions,
+  selectedColor,
+  onSelectColor,
+  priceRange,
+  onSelectPriceRange,
+  onResetFilters,
+}) {
+  return (
     <div className="space-y-5 rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 sm:space-y-6 sm:p-6">
       <div className="flex items-center justify-between gap-3 border-b border-[#E5DAC8] pb-4">
         <h3 className="font-serif text-lg font-bold text-[#4A0E19]">
@@ -208,7 +75,7 @@ export default function CataloguePage() {
 
         <button
           type="button"
-          onClick={handleResetFilters}
+          onClick={onResetFilters}
           className="shrink-0 text-xs font-semibold text-[#6B1626] transition-colors hover:text-[#4A0E19] hover:underline focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
         >
           Clear All
@@ -226,7 +93,7 @@ export default function CataloguePage() {
         <select
           id="category-filter"
           value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
+          onChange={(e) => onSelectCategory(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
           {categoryOptions.map((cat) => (
@@ -248,7 +115,7 @@ export default function CataloguePage() {
         <select
           id="fabric-filter"
           value={selectedFabric}
-          onChange={(e) => setSelectedFabric(e.target.value)}
+          onChange={(e) => onSelectFabric(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
           {fabricOptions.map((fab) => (
@@ -270,7 +137,7 @@ export default function CataloguePage() {
         <select
           id="color-filter"
           value={selectedColor}
-          onChange={(e) => setSelectedColor(e.target.value)}
+          onChange={(e) => onSelectColor(e.target.value)}
           className="min-h-11 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-sm text-[#1F1C1D] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
         >
           {colorOptions.map((col) => (
@@ -302,7 +169,7 @@ export default function CataloguePage() {
                 name="priceRange"
                 value={range.value}
                 checked={priceRange === range.value}
-                onChange={(e) => setPriceRange(e.target.value)}
+                onChange={(e) => onSelectPriceRange(e.target.value)}
                 className="h-4 w-4 accent-[#6B1626]"
               />
 
@@ -313,6 +180,266 @@ export default function CataloguePage() {
       </div>
     </div>
   );
+}
+
+export default function CataloguePage() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState({
+    page: 0,
+    size: PAGE_SIZE,
+    totalElements: 0,
+    totalPages: 0,
+    first: true,
+    last: true,
+  });
+
+  // Filter & Search states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [selectedFabric, setSelectedFabric] = useState('All Fabrics');
+  const [selectedColor, setSelectedColor] = useState('All Colors');
+  const [priceRange, setPriceRange] = useState('all');
+  const [sortBy, setSortBy] = useState('featured');
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  const resultsTopRef = useRef(null);
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // Fetch paginated products from backend
+  const fetchProducts = useCallback(async (pageToFetch = currentPage) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = {
+        page: Math.max(0, pageToFetch - 1),
+        size: PAGE_SIZE,
+      };
+
+      if (debouncedSearch.trim()) {
+        params.search = debouncedSearch.trim();
+      }
+      if (selectedCategory && selectedCategory !== 'All Categories') {
+        params.category = selectedCategory;
+      }
+      if (selectedFabric && selectedFabric !== 'All Fabrics') {
+        params.fabric = selectedFabric;
+      }
+      if (selectedColor && selectedColor !== 'All Colors') {
+        params.color = selectedColor;
+      }
+      if (priceRange && priceRange !== 'all') {
+        params.priceRange = priceRange;
+      }
+      if (sortBy && sortBy !== 'featured') {
+        params.sortBy = sortBy;
+      }
+
+      const response = await getProducts(params);
+      const data = response.data || {};
+
+      // If backend returns paginated PageResponse
+      if (data && Array.isArray(data.content)) {
+        const activeOnly = data.content.filter((p) => p.active !== false);
+        setProducts(activeOnly);
+        setPaginationMeta({
+          page: data.page ?? (pageToFetch - 1),
+          size: data.size ?? PAGE_SIZE,
+          totalElements: data.totalElements ?? activeOnly.length,
+          totalPages: data.totalPages ?? (activeOnly.length > 0 ? 1 : 0),
+          first: data.first ?? (pageToFetch === 1),
+          last: data.last ?? true,
+        });
+
+        // Handle case where current page exceeds totalPages
+        if (data.totalPages > 0 && pageToFetch > data.totalPages) {
+          setCurrentPage(data.totalPages);
+        }
+      } else if (Array.isArray(data)) {
+        // Fallback for non-paginated backend response
+        const activeOnly = data.filter((p) => p.active !== false);
+        const total = activeOnly.length;
+        const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+        const startIndex = (pageToFetch - 1) * PAGE_SIZE;
+        const paged = activeOnly.slice(startIndex, startIndex + PAGE_SIZE);
+
+        setProducts(paged);
+        setPaginationMeta({
+          page: pageToFetch - 1,
+          size: PAGE_SIZE,
+          totalElements: total,
+          totalPages,
+          first: pageToFetch === 1,
+          last: pageToFetch >= totalPages,
+        });
+      } else {
+        setProducts([]);
+        setPaginationMeta({
+          page: 0,
+          size: PAGE_SIZE,
+          totalElements: 0,
+          totalPages: 0,
+          first: true,
+          last: true,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      setError(
+        err.response?.data?.message ||
+          'Failed to connect to the saree wholesale catalogue. Please make sure the backend is active.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    currentPage,
+    debouncedSearch,
+    selectedCategory,
+    selectedFabric,
+    selectedColor,
+    priceRange,
+    sortBy,
+  ]);
+
+  // Reset to page 1 whenever search or filters or sort change
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setCurrentPage(1);
+  }, [
+    debouncedSearch,
+    selectedCategory,
+    selectedFabric,
+    selectedColor,
+    priceRange,
+    sortBy,
+  ]);
+
+  // Trigger fetch whenever currentPage, debouncedSearch, filters or sort change
+  useEffect(() => {
+    fetchProducts(currentPage);
+  }, [fetchProducts, currentPage]);
+
+  // Keyboard navigation & modal overflow
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setMobileFilterOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (mobileFilterOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileFilterOpen]);
+
+  // Dynamic filter options combining predefined defaults with products data
+  const categoryOptions = useMemo(() => {
+    const fromData = products.map((p) => p.category).filter(Boolean);
+    return Array.from(new Set(['All Categories', ...DEFAULT_CATEGORIES, ...fromData]));
+  }, [products]);
+
+  const fabricOptions = useMemo(() => {
+    const fromData = products.map((p) => p.fabric).filter(Boolean);
+    return Array.from(new Set(['All Fabrics', ...DEFAULT_FABRICS, ...fromData]));
+  }, [products]);
+
+  const colorOptions = useMemo(() => {
+    const fromData = products.map((p) => p.color).filter(Boolean);
+    return Array.from(new Set(['All Colors', ...DEFAULT_COLORS, ...fromData]));
+  }, [products]);
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setDebouncedSearch('');
+    setSelectedCategory('All Categories');
+    setSelectedFabric('All Fabrics');
+    setSelectedColor('All Colors');
+    setPriceRange('all');
+    setSortBy('featured');
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > paginationMeta.totalPages || newPage === currentPage || loading) {
+      return;
+    }
+    setCurrentPage(newPage);
+
+    if (resultsTopRef.current) {
+      resultsTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const activeFilterCount = [
+    selectedCategory !== 'All Categories',
+    selectedFabric !== 'All Fabrics',
+    selectedColor !== 'All Colors',
+    priceRange !== 'all',
+  ].filter(Boolean).length;
+
+  // Compute pagination range numbers
+  const pageNumbers = useMemo(() => {
+    const total = paginationMeta.totalPages;
+    if (total <= 1) return [];
+
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const pages = [];
+    pages.push(1);
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(total - 1, currentPage + 1);
+
+    if (start > 2) {
+      pages.push('...');
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (end < total - 1) {
+      pages.push('...');
+    }
+
+    pages.push(total);
+    return pages;
+  }, [paginationMeta.totalPages, currentPage]);
+
+  const startIndex = paginationMeta.totalElements === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(currentPage * PAGE_SIZE, paginationMeta.totalElements);
 
   return (
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#FAF7F2] text-[#1F1C1D]">
@@ -410,19 +537,43 @@ export default function CataloguePage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-stretch gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <div
+            ref={resultsTopRef}
+            className="flex flex-col items-stretch gap-6 lg:flex-row lg:items-start lg:gap-8"
+          >
             <aside className="hidden w-64 shrink-0 lg:sticky lg:top-24 lg:block xl:w-72">
-              <FilterPanel />
+              <FilterPanelContent
+                categoryOptions={categoryOptions}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+                fabricOptions={fabricOptions}
+                selectedFabric={selectedFabric}
+                onSelectFabric={setSelectedFabric}
+                colorOptions={colorOptions}
+                selectedColor={selectedColor}
+                onSelectColor={setSelectedColor}
+                priceRange={priceRange}
+                onSelectPriceRange={setPriceRange}
+                onResetFilters={handleResetFilters}
+              />
             </aside>
 
             <div className="min-w-0 flex-1 space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#55504E]">
                 <span>
-                  Showing{' '}
-                  <strong className="text-[#4A0E19]">
-                    {filteredSarees.length}
-                  </strong>{' '}
-                  wholesale designs
+                  {paginationMeta.totalElements > 0 ? (
+                    <>
+                      Showing <strong className="text-[#4A0E19]">{startIndex}–{endIndex}</strong> of{' '}
+                      <strong className="text-[#4A0E19]">{paginationMeta.totalElements}</strong> wholesale designs
+                      {paginationMeta.totalPages > 1 && (
+                        <span className="ml-1 text-[#8B8580]">
+                          (Page {currentPage} of {paginationMeta.totalPages})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    'No designs matching your criteria'
+                  )}
                 </span>
 
                 {activeFilterCount > 0 && (
@@ -443,20 +594,124 @@ export default function CataloguePage() {
                   <p className="text-sm font-semibold text-red-700">{error}</p>
                   <button
                     type="button"
-                    onClick={fetchProducts}
+                    onClick={() => fetchProducts(currentPage)}
                     className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#6B1626] px-4 py-2 text-xs font-semibold text-[#FAF7F2] hover:bg-[#4A0E19]"
                   >
                     Retry Loading
                   </button>
                 </div>
-              ) : filteredSarees.length === 0 ? (
+              ) : products.length === 0 ? (
                 <EmptyState onReset={handleResetFilters} />
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
-                  {filteredSarees.map((saree) => (
-                    <ProductCard key={saree.id} saree={saree} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
+                    {products.map((saree) => (
+                      <ProductCard key={saree.id} saree={saree} />
+                    ))}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {paginationMeta.totalPages > 1 && (
+                    <nav
+                      aria-label="Catalogue pagination"
+                      className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 sm:flex-row sm:px-6"
+                    >
+                      <div className="text-xs text-[#55504E]">
+                        Page <strong className="text-[#4A0E19]">{currentPage}</strong> of{' '}
+                        <strong className="text-[#4A0E19]">{paginationMeta.totalPages}</strong>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        {/* Previous Button */}
+                        <button
+                          type="button"
+                          id="pagination-prev-btn"
+                          disabled={paginationMeta.first || currentPage <= 1 || loading}
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-3.5 py-2 text-xs font-semibold text-[#4A0E19] transition-all hover:bg-[#E5DAC8] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                          aria-label="Go to previous page"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 19l-7-7 7-7"
+                            />
+                          </svg>
+                          <span>Previous</span>
+                        </button>
+
+                        {/* Page Numbers */}
+                        <div className="hidden items-center gap-1 sm:flex">
+                          {pageNumbers.map((p, idx) => {
+                            if (p === '...') {
+                              return (
+                                <span
+                                  key={`ellipsis-${idx}`}
+                                  className="px-2 text-xs text-[#8B8580]"
+                                >
+                                  …
+                                </span>
+                              );
+                            }
+
+                            const isActive = p === currentPage;
+                            return (
+                              <button
+                                key={`page-${p}`}
+                                type="button"
+                                disabled={loading}
+                                onClick={() => handlePageChange(p)}
+                                aria-label={`Go to page ${p}`}
+                                aria-current={isActive ? 'page' : undefined}
+                                className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-[#C5A059] ${
+                                  isActive
+                                    ? 'bg-[#6B1626] text-[#FAF7F2] shadow-sm'
+                                    : 'border border-[#E5DAC8] bg-[#FAF7F2] text-[#4A0E19] hover:bg-[#E5DAC8]'
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Next Button */}
+                        <button
+                          type="button"
+                          id="pagination-next-btn"
+                          disabled={paginationMeta.last || currentPage >= paginationMeta.totalPages || loading}
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-3.5 py-2 text-xs font-semibold text-[#4A0E19] transition-all hover:bg-[#E5DAC8] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                          aria-label="Go to next page"
+                        >
+                          <span>Next</span>
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </nav>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -509,7 +764,20 @@ export default function CataloguePage() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-              <FilterPanel />
+              <FilterPanelContent
+                categoryOptions={categoryOptions}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+                fabricOptions={fabricOptions}
+                selectedFabric={selectedFabric}
+                onSelectFabric={setSelectedFabric}
+                colorOptions={colorOptions}
+                selectedColor={selectedColor}
+                onSelectColor={setSelectedColor}
+                priceRange={priceRange}
+                onSelectPriceRange={setPriceRange}
+                onResetFilters={handleResetFilters}
+              />
             </div>
 
             <div className="shrink-0 border-t border-[#E5DAC8] bg-[#FAF7F2] px-4 py-4 sm:px-5">
@@ -518,7 +786,7 @@ export default function CataloguePage() {
                 onClick={() => setMobileFilterOpen(false)}
                 className="min-h-11 w-full rounded-lg bg-[#6B1626] px-5 py-3 text-sm font-semibold uppercase tracking-wider text-[#FAF7F2] transition-colors hover:bg-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059] focus:ring-offset-2"
               >
-                View {filteredSarees.length} Results
+                View {paginationMeta.totalElements} Results
               </button>
             </div>
           </div>

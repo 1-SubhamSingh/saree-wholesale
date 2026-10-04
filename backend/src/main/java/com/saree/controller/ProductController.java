@@ -1,10 +1,10 @@
 package com.saree.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.saree.dto.PageResponse;
 import com.saree.model.Product;
 import com.saree.service.ProductService;
 
@@ -20,8 +20,35 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
-        return ResponseEntity.ok(productService.getAllProducts());
+    public ResponseEntity<PageResponse<Product>> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String fabric,
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) String priceRange,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sort) {
+
+        String effectiveSort = (sortBy != null && !sortBy.trim().isEmpty()) ? sortBy : sort;
+
+        Page<Product> productPage = productService.getProducts(
+                page,
+                size,
+                search,
+                category,
+                fabric,
+                color,
+                minPrice,
+                maxPrice,
+                priceRange,
+                effectiveSort
+        );
+
+        return ResponseEntity.ok(PageResponse.from(productPage));
     }
 
     @GetMapping("/{id}")
