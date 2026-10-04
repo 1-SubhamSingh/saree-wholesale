@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.saree.dto.PageResponse;
+import com.saree.dto.ProductFilterOptions;
 import com.saree.model.Product;
 import com.saree.service.ProductService;
 
@@ -59,7 +60,7 @@ public class ProductController {
     }
 
     @GetMapping("/filters")
-    public ResponseEntity<com.saree.dto.ProductFilterOptions> getFilterOptions() {
+    public ResponseEntity<ProductFilterOptions> getFilterOptions() {
         return ResponseEntity.ok(productService.getFilterOptions());
     }
 
