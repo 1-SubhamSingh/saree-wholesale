@@ -2,7 +2,11 @@ package com.saree.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+
+import com.saree.dto.ProductFilterOptions;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -156,6 +160,54 @@ public class ProductService {
             case "name_desc", "name,desc" -> Sort.by(Sort.Direction.DESC, "name");
             default -> Sort.by(Sort.Direction.DESC, "id");
         };
+    }
+
+    public List<Product> getActiveProducts() {
+        if (mongoTemplate == null) {
+            return productRepository.findByActiveTrue();
+        }
+
+        Query query = new Query(Criteria.where("active").ne(false));
+        return mongoTemplate.find(query, Product.class);
+    }
+
+    public ProductFilterOptions getFilterOptions() {
+        if (mongoTemplate == null) {
+            List<Product> products = productRepository.findByActiveTrue();
+            return new ProductFilterOptions(
+                    collectValues(products, Product::getCategory),
+                    collectValues(products, Product::getFabric),
+                    collectValues(products, Product::getColor)
+            );
+        }
+
+        Query query = new Query(Criteria.where("active").ne(false));
+
+        return new ProductFilterOptions(
+                distinctValues("category", query),
+                distinctValues("fabric", query),
+                distinctValues("color", query)
+        );
+    }
+
+    private List<String> distinctValues(String field, Query query) {
+        return new TreeSet<String>(String.CASE_INSENSITIVE_ORDER) {{
+            addAll(mongoTemplate.query(Product.class)
+                    .distinct(field)
+                    .matching(query)
+                    .as(String.class)
+                    .all());
+            removeIf(value -> value == null || value.trim().isEmpty());
+        }}.stream().toList();
+    }
+
+    private List<String> collectValues(List<Product> products, Function<Product, String> getter) {
+        TreeSet<String> values = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        products.stream()
+                .map(getter)
+                .filter(value -> value != null && !value.trim().isEmpty())
+                .forEach(values::add);
+        return values.stream().toList();
     }
 
     public Product getProductById(String id) {
