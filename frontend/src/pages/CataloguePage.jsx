@@ -5,7 +5,7 @@ import ProductCard from '../components/ProductCard';
 import SEO from '../components/common/SEO';
 import EmptyState from '../components/common/EmptyState';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { getProducts } from '../services/api';
+import { getProducts, getProductFilters } from '../services/api';
 
 const DEFAULT_CATEGORIES = [
   'All Categories',
@@ -208,7 +208,13 @@ export default function CataloguePage() {
   const [sortBy, setSortBy] = useState('featured');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
+  const [fabricOptions, setFabricOptions] = useState(DEFAULT_FABRICS);
+  const [colorOptions, setColorOptions] = useState(DEFAULT_COLORS);
+
   const resultsTopRef = useRef(null);
+  const requestSeqRef = useRef(0);
+  const previousQueryKeyRef = useRef(null);
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -219,8 +225,18 @@ export default function CataloguePage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch paginated products from backend
-  const fetchProducts = useCallback(async (pageToFetch = currentPage) => {
+  const queryKey = JSON.stringify([
+    debouncedSearch.trim(),
+    selectedCategory,
+    selectedFabric,
+    selectedColor,
+    priceRange,
+    sortBy,
+  ]);
+
+  const fetchProducts = useCallback(async (pageToFetch = 1) => {
+    const requestId = ++requestSeqRef.current;
+
     try {
       setLoading(true);
       setError(null);
@@ -250,9 +266,13 @@ export default function CataloguePage() {
       }
 
       const response = await getProducts(params);
+
+      if (requestId !== requestSeqRef.current) {
+        return;
+      }
+
       const data = response.data || {};
 
-      // If backend returns paginated PageResponse
       if (data && Array.isArray(data.content)) {
         const activeOnly = data.content.filter((p) => p.active !== false);
         setProducts(activeOnly);
@@ -265,12 +285,10 @@ export default function CataloguePage() {
           last: data.last ?? true,
         });
 
-        // Handle case where current page exceeds totalPages
         if (data.totalPages > 0 && pageToFetch > data.totalPages) {
           setCurrentPage(data.totalPages);
         }
       } else if (Array.isArray(data)) {
-        // Fallback for non-paginated backend response
         const activeOnly = data.filter((p) => p.active !== false);
         const total = activeOnly.length;
         const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
@@ -298,32 +316,19 @@ export default function CataloguePage() {
         });
       }
     } catch (err) {
+      if (requestId !== requestSeqRef.current) {
+        return;
+      }
       console.error('Failed to load products:', err);
       setError(
         err.response?.data?.message ||
           'Failed to connect to the saree wholesale catalogue. Please make sure the backend is active.'
       );
     } finally {
-      setLoading(false);
+      if (requestId === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
-  }, [
-    currentPage,
-    debouncedSearch,
-    selectedCategory,
-    selectedFabric,
-    selectedColor,
-    priceRange,
-    sortBy,
-  ]);
-
-  // Reset to page 1 whenever search or filters or sort change
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    setCurrentPage(1);
   }, [
     debouncedSearch,
     selectedCategory,
@@ -333,10 +338,32 @@ export default function CataloguePage() {
     sortBy,
   ]);
 
-  // Trigger fetch whenever currentPage, debouncedSearch, filters or sort change
   useEffect(() => {
+    if (previousQueryKeyRef.current !== queryKey) {
+      previousQueryKeyRef.current = queryKey;
+      requestSeqRef.current += 1;
+
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+
     fetchProducts(currentPage);
-  }, [fetchProducts, currentPage]);
+  }, [queryKey, currentPage, fetchProducts]);
+
+  useEffect(() => {
+    getProductFilters()
+      .then((response) => {
+        const data = response.data || {};
+        setCategoryOptions(Array.from(new Set([...DEFAULT_CATEGORIES, ...(data.categories || [])])));
+        setFabricOptions(Array.from(new Set([...DEFAULT_FABRICS, ...(data.fabrics || [])])));
+        setColorOptions(Array.from(new Set([...DEFAULT_COLORS, ...(data.colors || [])])));
+      })
+      .catch((err) => {
+        console.warn('Could not load product filter options:', err);
+      });
+  }, []);
 
   // Keyboard navigation & modal overflow
   useEffect(() => {
@@ -362,21 +389,7 @@ export default function CataloguePage() {
     };
   }, [mobileFilterOpen]);
 
-  // Dynamic filter options combining predefined defaults with products data
-  const categoryOptions = useMemo(() => {
-    const fromData = products.map((p) => p.category).filter(Boolean);
-    return Array.from(new Set(['All Categories', ...DEFAULT_CATEGORIES, ...fromData]));
-  }, [products]);
 
-  const fabricOptions = useMemo(() => {
-    const fromData = products.map((p) => p.fabric).filter(Boolean);
-    return Array.from(new Set(['All Fabrics', ...DEFAULT_FABRICS, ...fromData]));
-  }, [products]);
-
-  const colorOptions = useMemo(() => {
-    const fromData = products.map((p) => p.color).filter(Boolean);
-    return Array.from(new Set(['All Colors', ...DEFAULT_COLORS, ...fromData]));
-  }, [products]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
