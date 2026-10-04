@@ -42,7 +42,9 @@ api.interceptors.response.use(
 );
 
 // Public Product APIs
-export const getProducts = () => api.get('/products');
+export const getProducts = (params = {}) => api.get('/products', { params });
+export const getActiveProducts = () => api.get('/products/active');
+export const getProductFilters = () => api.get('/products/filters');
 export const getProductById = (id) => api.get(`/products/${id}`);
 
 // Public Enquiry API
