@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SEO from '../components/common/SEO';
-import { getProducts, submitEnquiry } from '../services/api';
+import { getActiveProducts, submitEnquiry } from '../services/api';
 
 export default function EnquiryPage() {
   const [searchParams] = useSearchParams();
@@ -32,10 +32,10 @@ export default function EnquiryPage() {
 
   useEffect(() => {
     // Load active products from backend for product dropdown
-    getProducts({ size: 100 })
+    getActiveProducts()
       .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : (res.data?.content || []);
-        setProducts(list.filter((p) => p.active !== false));
+        const list = Array.isArray(res.data) ? res.data : [];
+        setProducts(list);
       })
       .catch((err) => {
         console.warn('Could not fetch products for enquiry dropdown:', err);
