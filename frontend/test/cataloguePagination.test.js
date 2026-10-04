@@ -295,5 +295,3 @@ describe('Frontend Catalogue Pagination', () => {
     });
   });
 });
-
-
