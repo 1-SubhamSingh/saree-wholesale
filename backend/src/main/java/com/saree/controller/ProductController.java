@@ -1,5 +1,7 @@
 package com.saree.controller;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +51,16 @@ public class ProductController {
         );
 
         return ResponseEntity.ok(PageResponse.from(productPage));
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<Product>> getActiveProducts() {
+        return ResponseEntity.ok(productService.getActiveProducts());
+    }
+
+    @GetMapping("/filters")
+    public ResponseEntity<com.saree.dto.ProductFilterOptions> getFilterOptions() {
+        return ResponseEntity.ok(productService.getFilterOptions());
     }
 
     @GetMapping("/{id}")
