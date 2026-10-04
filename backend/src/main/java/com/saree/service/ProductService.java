@@ -191,14 +191,16 @@ public class ProductService {
     }
 
     private List<String> distinctValues(String field, Query query) {
-        return new TreeSet<String>(String.CASE_INSENSITIVE_ORDER) {{
-            addAll(mongoTemplate.query(Product.class)
-                    .distinct(field)
-                    .matching(query)
-                    .as(String.class)
-                    .all());
-            removeIf(value -> value == null || value.trim().isEmpty());
-        }}.stream().toList();
+        TreeSet<String> values = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        mongoTemplate.query(Product.class)
+                .distinct(field)
+                .matching(query)
+                .as(String.class)
+                .all()
+                .stream()
+                .filter(value -> value != null && !value.trim().isEmpty())
+                .forEach(values::add);
+        return values.stream().toList();
     }
 
     private List<String> collectValues(List<Product> products, Function<Product, String> getter) {
