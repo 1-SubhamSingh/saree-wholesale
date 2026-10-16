@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProductCard from '../components/ProductCard';
@@ -198,10 +199,15 @@ export default function CataloguePage() {
     last: true,
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category');
+
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [selectedCategory, setSelectedCategory] = useState(
+    categoryParam ? categoryParam.trim() : 'All Categories'
+  );
   const [selectedFabric, setSelectedFabric] = useState('All Fabrics');
   const [selectedColor, setSelectedColor] = useState('All Colors');
   const [priceRange, setPriceRange] = useState('all');
@@ -391,6 +397,28 @@ export default function CataloguePage() {
 
 
 
+  // Automatically apply category filter from URL query param
+  useEffect(() => {
+    if (categoryParam && categoryParam.trim()) {
+      const cat = categoryParam.trim();
+      setSelectedCategory(cat);
+      setCategoryOptions((prev) => (prev.includes(cat) ? prev : [...prev, cat]));
+    } else if (categoryParam === null) {
+      setSelectedCategory('All Categories');
+    }
+  }, [categoryParam]);
+
+  const handleSelectCategory = (cat) => {
+    setSelectedCategory(cat);
+    const nextParams = new URLSearchParams(searchParams);
+    if (!cat || cat === 'All Categories') {
+      nextParams.delete('category');
+    } else {
+      nextParams.set('category', cat);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handleResetFilters = () => {
     setSearchTerm('');
     setDebouncedSearch('');
@@ -400,6 +428,9 @@ export default function CataloguePage() {
     setPriceRange('all');
     setSortBy('featured');
     setCurrentPage(1);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('category');
+    setSearchParams(nextParams, { replace: true });
   };
 
   const handlePageChange = (newPage) => {
@@ -558,7 +589,7 @@ export default function CataloguePage() {
               <FilterPanelContent
                 categoryOptions={categoryOptions}
                 selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
+                onSelectCategory={handleSelectCategory}
                 fabricOptions={fabricOptions}
                 selectedFabric={selectedFabric}
                 onSelectFabric={setSelectedFabric}
@@ -780,7 +811,7 @@ export default function CataloguePage() {
               <FilterPanelContent
                 categoryOptions={categoryOptions}
                 selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
+                onSelectCategory={handleSelectCategory}
                 fabricOptions={fabricOptions}
                 selectedFabric={selectedFabric}
                 onSelectFabric={setSelectedFabric}

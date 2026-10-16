@@ -44,6 +44,7 @@ api.interceptors.response.use(
 // Public Product APIs
 export const getProducts = (params = {}) => api.get('/products', { params });
 export const getActiveProducts = () => api.get('/products/active');
+export const getFeaturedProducts = () => api.get('/products/featured');
 export const getProductFilters = () => api.get('/products/filters');
 export const getProductById = (id) => api.get(`/products/${id}`);
 
@@ -54,15 +55,26 @@ export const submitEnquiry = (enquiryData) => api.post('/enquiries', enquiryData
 export const adminLogin = (credentials) => api.post('/admin/login', credentials);
 
 // Admin Products API
-export const adminGetProducts = () => api.get('/admin/products');
+export const adminGetProducts = (params = {}) => api.get('/admin/products', { params });
 export const adminCreateProduct = (productData) => api.post('/admin/products', productData);
 export const adminUpdateProduct = (id, productData) => api.put(`/admin/products/${id}`, productData);
 export const adminDeleteProduct = (id) => api.delete(`/admin/products/${id}`);
+export const adminToggleFeatured = (id, featured) =>
+  api.put(`/admin/products/${id}/featured`, null, {
+    params: featured !== undefined ? { featured } : {},
+  });
+export const adminToggleActive = (id, active) =>
+  api.put(`/admin/products/${id}/active`, null, {
+    params: active !== undefined ? { active } : {},
+  });
 
 // Admin Enquiries API
-export const adminGetEnquiries = () => api.get('/admin/enquiries');
+export const adminGetEnquiries = (params = {}) => api.get('/admin/enquiries', { params });
 export const adminGetEnquiryById = (id) => api.get(`/admin/enquiries/${id}`);
-export const adminUpdateEnquiryStatus = (id, status) => api.put(`/admin/enquiries/${id}/status`, { status });
+export const adminUpdateEnquiryStatus = (id, status, adminNotes) =>
+  api.put(`/admin/enquiries/${id}/status`, { status, adminNotes });
+export const adminUpdateEnquiryNotes = (id, adminNotes) =>
+  api.put(`/admin/enquiries/${id}/notes`, { adminNotes });
 
 // Admin Dashboard Stats API
 export const adminGetDashboardStats = () => api.get('/admin/stats');

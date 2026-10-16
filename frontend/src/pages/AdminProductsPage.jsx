@@ -8,8 +8,11 @@ import {
   adminCreateProduct,
   adminUpdateProduct,
   adminDeleteProduct,
+  adminToggleFeatured,
+  adminToggleActive,
   adminGetEnquiries,
   adminUpdateEnquiryStatus,
+  adminUpdateEnquiryNotes,
 } from '../services/api';
 import { uploadProductImage, validateImageFile } from '../services/imageUpload';
 
@@ -47,6 +50,7 @@ const EMPTY_PRODUCT_FORM = {
   badge: 'New Arrival',
   imageUrl: '',
   active: true,
+  featured: false,
   variants: [
     { name: 'Red', hex: '#8B0000' },
     { name: 'Gold', hex: '#C5A059' },
@@ -58,16 +62,39 @@ export default function AdminProductsPage() {
 
   const [activeTab, setActiveTab] = useState('products'); // 'products' | 'enquiries'
 
-  // Products state
+  // ================= PRODUCTS STATE =================
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState(null);
+  const [productPage, setProductPage] = useState(0);
+  const [productSize, setProductSize] = useState(10);
+  const [productSearchInput, setProductSearchInput] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategory, setProductCategory] = useState('');
+  const [productActiveFilter, setProductActiveFilter] = useState('ALL');
+  const [productSortBy, setProductSortBy] = useState('newest');
+  const [productTotalPages, setProductTotalPages] = useState(1);
+  const [productTotalElements, setProductTotalElements] = useState(0);
 
-  // Enquiries state
+  // ================= ENQUIRIES STATE =================
   const [enquiries, setEnquiries] = useState([]);
   const [loadingEnquiries, setLoadingEnquiries] = useState(false);
   const [enquiriesError, setEnquiriesError] = useState(null);
-  const [enquiryFilter, setEnquiryFilter] = useState('ALL');
+  const [enquiryPage, setEnquiryPage] = useState(0);
+  const [enquirySize, setEnquirySize] = useState(10);
+  const [enquirySearchInput, setEnquirySearchInput] = useState('');
+  const [enquirySearch, setEnquirySearch] = useState('');
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState('ALL');
+  const [enquirySortBy, setEnquirySortBy] = useState('newest');
+  const [enquiryTotalPages, setEnquiryTotalPages] = useState(1);
+  const [enquiryTotalElements, setEnquiryTotalElements] = useState(0);
+
+  // Enquiry detail modal state
+  const [selectedEnquiry, setSelectedEnquiry] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [adminNoteText, setAdminNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteStatusMsg, setNoteStatusMsg] = useState(null);
 
   // Modal State for Product CRUD
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -87,12 +114,44 @@ export default function AdminProductsPage() {
   const [newVariantName, setNewVariantName] = useState('');
   const [newVariantHex, setNewVariantHex] = useState('#6B1626');
 
+  // Fetch Products with server-side pagination & filtering
   const fetchProducts = useCallback(async () => {
     try {
       setLoadingProducts(true);
       setProductsError(null);
-      const res = await adminGetProducts();
-      setProducts(Array.isArray(res.data) ? res.data : []);
+
+      const params = {
+        page: productPage,
+        size: productSize,
+        sortBy: productSortBy,
+      };
+
+      if (productSearch.trim()) {
+        params.search = productSearch.trim();
+      }
+      if (productCategory.trim()) {
+        params.category = productCategory.trim();
+      }
+      if (productActiveFilter === 'ACTIVE') {
+        params.active = true;
+      } else if (productActiveFilter === 'INACTIVE') {
+        params.active = false;
+      }
+
+      const res = await adminGetProducts(params);
+      if (res.data && Array.isArray(res.data.content)) {
+        setProducts(res.data.content);
+        setProductTotalPages(res.data.totalPages || 1);
+        setProductTotalElements(res.data.totalElements || 0);
+      } else if (Array.isArray(res.data)) {
+        setProducts(res.data);
+        setProductTotalPages(1);
+        setProductTotalElements(res.data.length);
+      } else {
+        setProducts([]);
+        setProductTotalPages(1);
+        setProductTotalElements(0);
+      }
     } catch (err) {
       console.error('Failed to load admin products:', err);
       if (err.response?.status === 401) {
@@ -104,24 +163,41 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingProducts(false);
     }
-  }, [navigate]);
+  }, [productPage, productSize, productSearch, productCategory, productActiveFilter, productSortBy, navigate]);
 
-  // Check auth
-  useEffect(() => {
-    const token = localStorage.getItem('saree_admin_token');
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
-    fetchProducts();
-  }, [navigate, fetchProducts]);
-
-  const fetchEnquiries = async () => {
+  // Fetch Enquiries with server-side pagination & filtering
+  const fetchEnquiries = useCallback(async () => {
     try {
       setLoadingEnquiries(true);
       setEnquiriesError(null);
-      const res = await adminGetEnquiries();
-      setEnquiries(Array.isArray(res.data) ? res.data : []);
+
+      const params = {
+        page: enquiryPage,
+        size: enquirySize,
+        sortBy: enquirySortBy,
+      };
+
+      if (enquirySearch.trim()) {
+        params.search = enquirySearch.trim();
+      }
+      if (enquiryStatusFilter !== 'ALL') {
+        params.status = enquiryStatusFilter;
+      }
+
+      const res = await adminGetEnquiries(params);
+      if (res.data && Array.isArray(res.data.content)) {
+        setEnquiries(res.data.content);
+        setEnquiryTotalPages(res.data.totalPages || 1);
+        setEnquiryTotalElements(res.data.totalElements || 0);
+      } else if (Array.isArray(res.data)) {
+        setEnquiries(res.data);
+        setEnquiryTotalPages(1);
+        setEnquiryTotalElements(res.data.length);
+      } else {
+        setEnquiries([]);
+        setEnquiryTotalPages(1);
+        setEnquiryTotalElements(0);
+      }
     } catch (err) {
       console.error('Failed to load enquiries:', err);
       if (err.response?.status === 401) {
@@ -133,13 +209,55 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingEnquiries(false);
     }
-  };
+  }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, navigate]);
 
+  // Check auth & initial fetch
+  useEffect(() => {
+    const token = localStorage.getItem('saree_admin_token');
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
+    fetchProducts();
+  }, [navigate, fetchProducts]);
+
+  // Tab switch
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'enquiries' && enquiries.length === 0) {
+    if (tab === 'enquiries') {
       fetchEnquiries();
     }
+  };
+
+  // Product search submission
+  const handleProductSearchSubmit = (e) => {
+    e.preventDefault();
+    setProductPage(0);
+    setProductSearch(productSearchInput);
+  };
+
+  const handleProductResetFilters = () => {
+    setProductSearchInput('');
+    setProductSearch('');
+    setProductCategory('');
+    setProductActiveFilter('ALL');
+    setProductSortBy('newest');
+    setProductPage(0);
+  };
+
+  // Enquiry search submission
+  const handleEnquirySearchSubmit = (e) => {
+    e.preventDefault();
+    setEnquiryPage(0);
+    setEnquirySearch(enquirySearchInput);
+  };
+
+  const handleEnquiryResetFilters = () => {
+    setEnquirySearchInput('');
+    setEnquirySearch('');
+    setEnquiryStatusFilter('ALL');
+    setEnquirySortBy('newest');
+    setEnquiryPage(0);
   };
 
   // Open Modal for Create
@@ -173,6 +291,7 @@ export default function AdminProductsPage() {
       badge: prod.badge || '',
       imageUrl: prod.imageUrl || '',
       active: prod.active !== false,
+      featured: Boolean(prod.featured),
       variants: Array.isArray(prod.variants) ? prod.variants : [],
     });
     setImageFile(null);
@@ -188,7 +307,7 @@ export default function AdminProductsPage() {
     }
     try {
       await adminDeleteProduct(id);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      fetchProducts();
     } catch (err) {
       console.error('Delete product error:', err);
       alert('Failed to delete product. Please verify server connection.');
@@ -198,14 +317,28 @@ export default function AdminProductsPage() {
   // Toggle active/inactive
   const handleToggleActive = async (prod) => {
     try {
-      const updated = { ...prod, active: !prod.active };
-      await adminUpdateProduct(prod.id, updated);
+      const nextActive = !prod.active;
+      await adminToggleActive(prod.id, nextActive);
       setProducts((prev) =>
-        prev.map((p) => (p.id === prod.id ? { ...p, active: !p.active } : p))
+        prev.map((p) => (p.id === prod.id ? { ...p, active: nextActive } : p))
       );
     } catch (err) {
       console.error('Toggle active status error:', err);
-      alert('Failed to update product status.');
+      alert('Failed to update product active status.');
+    }
+  };
+
+  // Toggle featured flag
+  const handleToggleFeatured = async (prod) => {
+    try {
+      const nextFeatured = !prod.featured;
+      await adminToggleFeatured(prod.id, nextFeatured);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prod.id ? { ...p, featured: nextFeatured } : p))
+      );
+    } catch (err) {
+      console.error('Toggle featured status error:', err);
+      alert('Failed to update featured status.');
     }
   };
 
@@ -226,7 +359,7 @@ export default function AdminProductsPage() {
     }));
   };
 
-  // Form submit
+  // Form submit for create/edit product
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.sku.trim()) {
@@ -241,6 +374,7 @@ export default function AdminProductsPage() {
       ...formData,
       price: formData.price !== '' ? Number(formData.price) : 0,
       priceTier: formData.priceTier.trim() || `₹${formData.price || 0} / piece`,
+      featured: Boolean(formData.featured),
     };
 
     try {
@@ -251,15 +385,12 @@ export default function AdminProductsPage() {
       }
 
       if (isEditing) {
-        const res = await adminUpdateProduct(currentProductId, payload);
-        setProducts((prev) =>
-          prev.map((p) => (p.id === currentProductId ? res.data : p))
-        );
+        await adminUpdateProduct(currentProductId, payload);
       } else {
-        const res = await adminCreateProduct(payload);
-        setProducts((prev) => [res.data, ...prev]);
+        await adminCreateProduct(payload);
       }
       setIsModalOpen(false);
+      fetchProducts();
     } catch (err) {
       console.error('Product save error:', err);
       setFormError(err.response?.data?.message || 'Failed to save product catalogue.');
@@ -276,16 +407,50 @@ export default function AdminProductsPage() {
       setEnquiries((prev) =>
         prev.map((enq) => (enq.id === enquiryId ? res.data : enq))
       );
+      if (selectedEnquiry && selectedEnquiry.id === enquiryId) {
+        setSelectedEnquiry(res.data);
+      }
     } catch (err) {
       console.error('Update enquiry status error:', err);
       alert('Failed to update status. Please try again.');
     }
   };
 
-  const filteredEnquiries = enquiries.filter((e) => {
-    if (enquiryFilter === 'ALL') return true;
-    return e.status === enquiryFilter;
-  });
+  // Open Enquiry Details Modal
+  const handleOpenEnquiryDetail = (enq) => {
+    setSelectedEnquiry(enq);
+    setAdminNoteText(enq.adminNotes || '');
+    setNoteStatusMsg(null);
+    setIsDetailModalOpen(true);
+  };
+
+  // Save Admin Internal Notes
+  const handleSaveAdminNote = async () => {
+    if (!selectedEnquiry) return;
+    try {
+      setSavingNote(true);
+      setNoteStatusMsg(null);
+      const res = await adminUpdateEnquiryNotes(selectedEnquiry.id, adminNoteText);
+      setSelectedEnquiry(res.data);
+      setEnquiries((prev) =>
+        prev.map((enq) => (enq.id === selectedEnquiry.id ? res.data : enq))
+      );
+      setNoteStatusMsg({ type: 'success', text: 'Internal note saved successfully!' });
+      setTimeout(() => setNoteStatusMsg(null), 3500);
+    } catch (err) {
+      console.error('Failed to save internal note:', err);
+      setNoteStatusMsg({ type: 'error', text: 'Failed to save note. Please retry.' });
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const statusColors = {
+    NEW: 'bg-amber-100 text-amber-900 border-amber-300',
+    CONTACTED: 'bg-blue-100 text-blue-900 border-blue-300',
+    IN_PROGRESS: 'bg-purple-100 text-purple-900 border-purple-300',
+    CLOSED: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#FAF7F2] text-[#1F1C1D]">
@@ -349,7 +514,7 @@ export default function AdminProductsPage() {
                     : 'bg-[#F4EFE6] text-[#55504E] hover:bg-[#FAF7F2]'
                 }`}
               >
-                Products ({products.length})
+                Products {productTotalElements > 0 ? `(${productTotalElements})` : `(${products.length})`}
               </button>
 
               <button
@@ -361,7 +526,7 @@ export default function AdminProductsPage() {
                     : 'bg-[#F4EFE6] text-[#55504E] hover:bg-[#FAF7F2]'
                 }`}
               >
-                Enquiries {enquiries.length > 0 && `(${enquiries.length})`}
+                Enquiries {enquiryTotalElements > 0 ? `(${enquiryTotalElements})` : `(${enquiries.length})`}
               </button>
             </div>
 
@@ -374,35 +539,108 @@ export default function AdminProductsPage() {
                 + Create New Saree Catalogue
               </button>
             )}
-
-            {activeTab === 'enquiries' && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-[#55504E]">Filter Status:</span>
-                <select
-                  value={enquiryFilter}
-                  onChange={(e) => setEnquiryFilter(e.target.value)}
-                  className="rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-1.5 text-xs font-semibold text-[#4A0E19]"
-                >
-                  <option value="ALL">All Enquiries</option>
-                  <option value="NEW">NEW</option>
-                  <option value="CONTACTED">CONTACTED</option>
-                  <option value="IN_PROGRESS">IN_PROGRESS</option>
-                  <option value="CLOSED">CLOSED</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={fetchEnquiries}
-                  className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-1.5 text-xs font-semibold text-[#4A0E19]"
-                >
-                  ↻ Refresh
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Tab 1: Products */}
           {activeTab === 'products' && (
-            <div>
+            <div className="space-y-4">
+              {/* Product Search & Filter Bar */}
+              <div className="rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-4 shadow-sm">
+                <form onSubmit={handleProductSearchSubmit} className="flex flex-wrap items-center gap-3">
+                  {/* Search Input */}
+                  <div className="relative min-w-[220px] flex-1">
+                    <input
+                      type="text"
+                      value={productSearchInput}
+                      onChange={(e) => setProductSearchInput(e.target.value)}
+                      placeholder="Search by SKU code or name..."
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3.5 py-2 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    />
+                    {productSearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductSearchInput('');
+                          setProductSearch('');
+                          setProductPage(0);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-700"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={productCategory}
+                      onChange={(e) => {
+                        setProductCategory(e.target.value);
+                        setProductPage(0);
+                      }}
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-medium text-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    >
+                      <option value="">All Categories</option>
+                      {DEFAULT_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Active/Inactive Filter */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={productActiveFilter}
+                      onChange={(e) => {
+                        setProductActiveFilter(e.target.value);
+                        setProductPage(0);
+                      }}
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-medium text-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    >
+                      <option value="ALL">All Status</option>
+                      <option value="ACTIVE">Active Only</option>
+                      <option value="INACTIVE">Inactive / Draft Only</option>
+                    </select>
+                  </div>
+
+                  {/* Sort By */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={productSortBy}
+                      onChange={(e) => {
+                        setProductSortBy(e.target.value);
+                        setProductPage(0);
+                      }}
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-medium text-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="featured">Featured First</option>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                    </select>
+                  </div>
+
+                  {/* Search and Reset Buttons */}
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#6B1626] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#52111d]"
+                  >
+                    Search
+                  </button>
+
+                  {(productSearch || productCategory || productActiveFilter !== 'ALL' || productSortBy !== 'newest') && (
+                    <button
+                      type="button"
+                      onClick={handleProductResetFilters}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-2 text-xs font-medium text-[#55504E] hover:text-[#4A0E19]"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </form>
+              </div>
+
               {loadingProducts ? (
                 <LoadingSpinner message="Fetching saree inventory from database..." />
               ) : productsError ? (
@@ -417,8 +655,8 @@ export default function AdminProductsPage() {
                 </div>
               ) : products.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#E5DAC8] p-12 text-center">
-                  <p className="text-sm font-semibold text-[#4A0E19]">No products found in catalogue.</p>
-                  <p className="mt-1 text-xs text-[#55504E]">Click "+ Create New Saree Catalogue" to add your first weave.</p>
+                  <p className="text-sm font-semibold text-[#4A0E19]">No products found matching criteria.</p>
+                  <p className="mt-1 text-xs text-[#55504E]">Try adjusting filters or adding a new saree weave.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] shadow-sm">
@@ -429,7 +667,7 @@ export default function AdminProductsPage() {
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Category</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Fabric</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Price / MOQ</th>
-                        <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Shades</th>
+                        <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Featured</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Status</th>
                         <th className="px-4 py-3.5 text-right font-bold uppercase tracking-wider">Actions</th>
                       </tr>
@@ -472,20 +710,18 @@ export default function AdminProductsPage() {
                               <div className="text-[11px] text-[#55504E]">MOQ: {p.minOrder}</div>
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-1">
-                                {p.variants && p.variants.length > 0 ? (
-                                  p.variants.map((v, idx) => (
-                                    <span
-                                      key={idx}
-                                      title={v.name}
-                                      className="h-4 w-4 rounded-full border border-black/20"
-                                      style={{ backgroundColor: v.hex || '#6B1626' }}
-                                    />
-                                  ))
-                                ) : (
-                                  <span className="text-[#55504E]">{p.color}</span>
-                                )}
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFeatured(p)}
+                                title={p.featured ? 'Click to unfeature' : 'Click to feature on homepage & catalogue'}
+                                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                  p.featured
+                                    ? 'border-amber-400 bg-amber-100 text-amber-900 shadow-xs'
+                                    : 'border-zinc-300 bg-zinc-100 text-zinc-500 hover:border-amber-400 hover:text-amber-800'
+                                }`}
+                              >
+                                {p.featured ? '⭐ Featured' : '☆ Standard'}
+                              </button>
                             </td>
                             <td className="px-4 py-3">
                               <button
@@ -533,12 +769,150 @@ export default function AdminProductsPage() {
                   </table>
                 </div>
               )}
+
+              {/* Product Server-side Pagination Controls */}
+              {productTotalPages > 1 && (
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-[#E5DAC8] pt-4 sm:flex-row">
+                  <div className="text-xs text-[#55504E]">
+                    Showing <span className="font-semibold text-[#4A0E19]">{productPage * productSize + 1}</span> to{' '}
+                    <span className="font-semibold text-[#4A0E19]">
+                      {Math.min((productPage + 1) * productSize, productTotalElements)}
+                    </span>{' '}
+                    of <span className="font-semibold text-[#4A0E19]">{productTotalElements}</span> weaves
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={productPage === 0}
+                      onClick={() => setProductPage((prev) => Math.max(0, prev - 1))}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-1.5 text-xs font-semibold text-[#4A0E19] hover:bg-[#FAF7F2] disabled:opacity-40"
+                    >
+                      ← Previous
+                    </button>
+
+                    <span className="px-2 text-xs font-semibold text-[#4A0E19]">
+                      Page {productPage + 1} of {productTotalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={productPage >= productTotalPages - 1}
+                      onClick={() => setProductPage((prev) => Math.min(productTotalPages - 1, prev + 1))}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-1.5 text-xs font-semibold text-[#4A0E19] hover:bg-[#FAF7F2] disabled:opacity-40"
+                    >
+                      Next →
+                    </button>
+
+                    <select
+                      value={productSize}
+                      onChange={(e) => {
+                        setProductSize(Number(e.target.value));
+                        setProductPage(0);
+                      }}
+                      className="ml-2 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-2 py-1 text-xs font-semibold text-[#4A0E19]"
+                    >
+                      <option value={10}>10 / page</option>
+                      <option value={20}>20 / page</option>
+                      <option value={50}>50 / page</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Tab 2: Enquiries */}
           {activeTab === 'enquiries' && (
-            <div>
+            <div className="space-y-4">
+              {/* Enquiry Search & Filter Bar */}
+              <div className="rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-4 shadow-sm">
+                <form onSubmit={handleEnquirySearchSubmit} className="flex flex-wrap items-center gap-3">
+                  {/* Search Input */}
+                  <div className="relative min-w-[220px] flex-1">
+                    <input
+                      type="text"
+                      value={enquirySearchInput}
+                      onChange={(e) => setEnquirySearchInput(e.target.value)}
+                      placeholder="Search buyer name, boutique, or phone..."
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3.5 py-2 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    />
+                    {enquirySearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEnquirySearchInput('');
+                          setEnquirySearch('');
+                          setEnquiryPage(0);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-700"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={enquiryStatusFilter}
+                      onChange={(e) => {
+                        setEnquiryStatusFilter(e.target.value);
+                        setEnquiryPage(0);
+                      }}
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-semibold text-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="NEW">NEW</option>
+                      <option value="CONTACTED">CONTACTED</option>
+                      <option value="IN_PROGRESS">IN_PROGRESS</option>
+                      <option value="CLOSED">CLOSED</option>
+                    </select>
+                  </div>
+
+                  {/* Sort By */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={enquirySortBy}
+                      onChange={(e) => {
+                        setEnquirySortBy(e.target.value);
+                        setEnquiryPage(0);
+                      }}
+                      className="min-h-10 w-full rounded-lg border border-[#E5DAC8] bg-white px-3 py-2 text-xs font-semibold text-[#4A0E19] focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                    </select>
+                  </div>
+
+                  {/* Search and Refresh Buttons */}
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#6B1626] px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#52111d]"
+                  >
+                    Search
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={fetchEnquiries}
+                    className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-2 text-xs font-semibold text-[#4A0E19] hover:bg-[#FAF7F2]"
+                  >
+                    ↻ Refresh
+                  </button>
+
+                  {(enquirySearch || enquiryStatusFilter !== 'ALL' || enquirySortBy !== 'newest') && (
+                    <button
+                      type="button"
+                      onClick={handleEnquiryResetFilters}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-2 text-xs font-medium text-[#55504E] hover:text-[#4A0E19]"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </form>
+              </div>
+
               {loadingEnquiries ? (
                 <LoadingSpinner message="Loading wholesale enquiries from buyer desk..." />
               ) : enquiriesError ? (
@@ -551,9 +925,9 @@ export default function AdminProductsPage() {
                     Retry
                   </button>
                 </div>
-              ) : filteredEnquiries.length === 0 ? (
+              ) : enquiries.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#E5DAC8] p-12 text-center">
-                  <p className="text-sm font-semibold text-[#4A0E19]">No wholesale enquiries found matching status '{enquiryFilter}'.</p>
+                  <p className="text-sm font-semibold text-[#4A0E19]">No wholesale enquiries found matching your search.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] shadow-sm">
@@ -563,35 +937,45 @@ export default function AdminProductsPage() {
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Buyer / Boutique</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Contact &amp; Location</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Target Item &amp; MOQ</th>
-                        <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Message</th>
+                        <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Internal Note</th>
                         <th className="px-4 py-3.5 font-bold uppercase tracking-wider">Status Workflow</th>
+                        <th className="px-4 py-3.5 text-right font-bold uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E5DAC8]">
-                      {filteredEnquiries.map((enq) => {
-                        const statusColors = {
-                          NEW: 'bg-amber-100 text-amber-900 border-amber-300',
-                          CONTACTED: 'bg-blue-100 text-blue-900 border-blue-300',
-                          IN_PROGRESS: 'bg-purple-100 text-purple-900 border-purple-300',
-                          CLOSED: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-                        };
-
+                      {enquiries.map((enq) => {
+                        const cleanPhone = enq.phone ? enq.phone.replace(/[^0-9]/g, '') : '';
+                        const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
                         return (
                           <tr key={enq.id} className="transition-colors hover:bg-[#F4EFE6]/60">
                             <td className="px-4 py-3.5">
                               <div className="font-bold text-[#4A0E19]">{enq.fullName}</div>
                               <div className="font-medium text-[#1F1C1D]">{enq.businessName}</div>
                               <div className="text-[10px] text-[#55504E]">
-                                {enq.createdAt ? new Date(enq.createdAt).toLocaleString('en-IN') : 'Recent'}
+                                Recd: {enq.createdAt ? new Date(enq.createdAt).toLocaleDateString('en-IN') : 'Recent'}
                               </div>
                             </td>
                             <td className="px-4 py-3.5">
-                              <a
-                                href={`tel:${enq.phone}`}
-                                className="font-mono font-bold text-[#6B1626] hover:underline"
-                              >
-                                {enq.phone}
-                              </a>
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={`tel:${enq.phone}`}
+                                  className="font-mono font-bold text-[#6B1626] hover:underline"
+                                  title="Click to Call"
+                                >
+                                  📞 {enq.phone}
+                                </a>
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Namaste ${enq.fullName}, regarding your Rajwada wholesale enquiry...`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                    title="WhatsApp Buyer Directly"
+                                  >
+                                    WA 💬
+                                  </a>
+                                )}
+                              </div>
                               <div className="text-[11px] text-[#55504E]">{enq.city}</div>
                             </td>
                             <td className="px-4 py-3.5">
@@ -602,10 +986,14 @@ export default function AdminProductsPage() {
                                 Req: {enq.quantity}
                               </span>
                             </td>
-                            <td className="max-w-xs px-4 py-3.5">
-                              <p className="line-clamp-3 text-xs leading-relaxed text-[#55504E]">
-                                {enq.message || 'No additional note provided.'}
-                              </p>
+                            <td className="max-w-[200px] px-4 py-3.5">
+                              {enq.adminNotes ? (
+                                <p className="line-clamp-2 text-xs italic text-[#55504E]">
+                                  "{enq.adminNotes}"
+                                </p>
+                              ) : (
+                                <span className="text-[11px] text-zinc-400">— No notes —</span>
+                              )}
                             </td>
                             <td className="px-4 py-3.5">
                               <select
@@ -621,6 +1009,15 @@ export default function AdminProductsPage() {
                                 <option value="CLOSED">CLOSED</option>
                               </select>
                             </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEnquiryDetail(enq)}
+                                className="rounded-lg border border-[#C5A059] bg-[#FAF7F2] px-3 py-1.5 text-xs font-semibold text-[#4A0E19] hover:bg-[#F4EFE6]"
+                              >
+                                View Details 📋
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -628,10 +1025,211 @@ export default function AdminProductsPage() {
                   </table>
                 </div>
               )}
+
+              {/* Enquiry Server-side Pagination Controls */}
+              {enquiryTotalPages > 1 && (
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-[#E5DAC8] pt-4 sm:flex-row">
+                  <div className="text-xs text-[#55504E]">
+                    Showing <span className="font-semibold text-[#4A0E19]">{enquiryPage * enquirySize + 1}</span> to{' '}
+                    <span className="font-semibold text-[#4A0E19]">
+                      {Math.min((enquiryPage + 1) * enquirySize, enquiryTotalElements)}
+                    </span>{' '}
+                    of <span className="font-semibold text-[#4A0E19]">{enquiryTotalElements}</span> enquiries
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={enquiryPage === 0}
+                      onClick={() => setEnquiryPage((prev) => Math.max(0, prev - 1))}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-1.5 text-xs font-semibold text-[#4A0E19] hover:bg-[#FAF7F2] disabled:opacity-40"
+                    >
+                      ← Previous
+                    </button>
+
+                    <span className="px-2 text-xs font-semibold text-[#4A0E19]">
+                      Page {enquiryPage + 1} of {enquiryTotalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={enquiryPage >= enquiryTotalPages - 1}
+                      onClick={() => setEnquiryPage((prev) => Math.min(enquiryTotalPages - 1, prev + 1))}
+                      className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-3 py-1.5 text-xs font-semibold text-[#4A0E19] hover:bg-[#FAF7F2] disabled:opacity-40"
+                    >
+                      Next →
+                    </button>
+
+                    <select
+                      value={enquirySize}
+                      onChange={(e) => {
+                        setEnquirySize(Number(e.target.value));
+                        setEnquiryPage(0);
+                      }}
+                      className="ml-2 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-2 py-1 text-xs font-semibold text-[#4A0E19]"
+                    >
+                      <option value={10}>10 / page</option>
+                      <option value={20}>20 / page</option>
+                      <option value={50}>50 / page</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
+
+      {/* Enquiry Full Detail View Modal */}
+      {isDetailModalOpen && selectedEnquiry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs">
+          <div className="relative my-8 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E5DAC8] bg-[#FAF7F2] p-6 shadow-2xl">
+            {/* Modal Header */}
+            <div className="mb-4 flex items-center justify-between border-b border-[#E5DAC8] pb-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">Wholesale Buyer Lead</span>
+                <h3 className="font-serif text-xl font-bold text-[#4A0E19]">
+                  {selectedEnquiry.fullName} — {selectedEnquiry.businessName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDetailModalOpen(false)}
+                className="rounded-md p-1.5 text-[#55504E] hover:bg-[#F4EFE6] hover:text-[#4A0E19]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Actions: Click to Call & WhatsApp */}
+            {(() => {
+              const cleanPhone = selectedEnquiry.phone ? selectedEnquiry.phone.replace(/[^0-9]/g, '') : '';
+              const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+              const waMsg = `Namaste ${selectedEnquiry.fullName}, thank you for your enquiry at Rajwada Sarees regarding ${selectedEnquiry.selectedProduct || 'our wholesale collection'}. How can we assist your boutique?`;
+              return (
+                <div className="mb-5 flex flex-wrap gap-2.5 rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-3">
+                  <a
+                    href={`tel:${selectedEnquiry.phone}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#6B1626] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#4A0E19]"
+                  >
+                    📞 Call Buyer ({selectedEnquiry.phone})
+                  </a>
+                  {cleanPhone && (
+                    <a
+                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waMsg)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                    >
+                      💬 WhatsApp Direct Chat
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Structured Buyer & Requirement Info Grid */}
+            <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-[#E5DAC8] bg-white p-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">Buyer Profile</div>
+                <div className="mt-1 font-bold text-[#4A0E19]">{selectedEnquiry.fullName}</div>
+                <div className="text-xs text-[#1F1C1D]">{selectedEnquiry.businessName}</div>
+                <div className="text-xs text-[#55504E]">City: <span className="font-medium text-[#1F1C1D]">{selectedEnquiry.city || 'Not specified'}</span></div>
+                <div className="text-xs text-[#55504E]">Phone: <span className="font-mono font-medium text-[#6B1626]">{selectedEnquiry.phone}</span></div>
+              </div>
+
+              <div className="rounded-lg border border-[#E5DAC8] bg-white p-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">Order Requirements</div>
+                <div className="mt-1 font-bold text-[#4A0E19]">{selectedEnquiry.selectedProduct || 'General Catalogue Enquiry'}</div>
+                <div className="text-xs text-[#55504E]">Requested Volume: <span className="font-semibold text-[#6B1626]">{selectedEnquiry.quantity || 'N/A'}</span></div>
+                <div className="mt-2 text-[11px] text-[#55504E]">
+                  Submitted: {selectedEnquiry.createdAt ? new Date(selectedEnquiry.createdAt).toLocaleString('en-IN') : 'N/A'}
+                </div>
+                <div className="text-[11px] text-[#55504E]">
+                  Last Updated: {selectedEnquiry.updatedAt ? new Date(selectedEnquiry.updatedAt).toLocaleString('en-IN') : (selectedEnquiry.createdAt ? new Date(selectedEnquiry.createdAt).toLocaleString('en-IN') : 'N/A')}
+                </div>
+              </div>
+            </div>
+
+            {/* Buyer Message */}
+            <div className="mb-5 rounded-lg border border-[#E5DAC8] bg-white p-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">Buyer Message / Enquiry Notes</div>
+              <p className="mt-1.5 whitespace-pre-wrap text-xs leading-relaxed text-[#1F1C1D]">
+                {selectedEnquiry.message || 'No additional note provided by the buyer.'}
+              </p>
+            </div>
+
+            {/* Workflow Status Selector */}
+            <div className="mb-5 rounded-lg border border-[#E5DAC8] bg-white p-3.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
+                Lead Status Workflow
+              </label>
+              <div className="mt-2 flex items-center gap-3">
+                <select
+                  value={selectedEnquiry.status}
+                  onChange={(e) => handleStatusChange(selectedEnquiry.id, e.target.value)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[#C5A059] ${
+                    statusColors[selectedEnquiry.status] || 'bg-zinc-100'
+                  }`}
+                >
+                  <option value="NEW">NEW</option>
+                  <option value="CONTACTED">CONTACTED</option>
+                  <option value="IN_PROGRESS">IN_PROGRESS</option>
+                  <option value="CLOSED">CLOSED</option>
+                </select>
+                <span className="text-[11px] text-[#55504E]">
+                  Updates immediately across the dashboard.
+                </span>
+              </div>
+            </div>
+
+            {/* Internal Admin Notes */}
+            <div className="mb-4 rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] p-3.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
+                Internal Admin Notes (Private to Team)
+              </label>
+              <textarea
+                rows={3}
+                value={adminNoteText}
+                onChange={(e) => setAdminNoteText(e.target.value)}
+                placeholder="Log internal follow-up details, quoted rates, shipping terms, sample requests..."
+                className="mt-1.5 w-full rounded-md border border-[#E5DAC8] bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <div>
+                  {noteStatusMsg && (
+                    <span
+                      className={`text-xs font-semibold ${
+                        noteStatusMsg.type === 'success' ? 'text-emerald-700' : 'text-red-700'
+                      }`}
+                    >
+                      {noteStatusMsg.text}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={savingNote}
+                  onClick={handleSaveAdminNote}
+                  className="rounded-lg bg-[#6B1626] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4A0E19] disabled:opacity-50"
+                >
+                  {savingNote ? 'Saving Note...' : 'Save Note'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-[#E5DAC8] pt-3">
+              <button
+                type="button"
+                onClick={() => setIsDetailModalOpen(false)}
+                className="rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] px-4 py-2 text-xs font-semibold text-[#55504E] hover:bg-[#FAF7F2]"
+              >
+                Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Product Create / Edit Modal */}
       {isModalOpen && (
@@ -816,7 +1414,6 @@ export default function AdminProductsPage() {
 
                     {/* Camera and Upload Action Buttons */}
                     <div className="flex flex-wrap items-center gap-2">
-                      {/* Button 1: Live Webcam / Phone Camera Viewfinder */}
                       <button
                         type="button"
                         onClick={() => setIsCameraOpen(true)}
@@ -826,7 +1423,6 @@ export default function AdminProductsPage() {
                         <span>Open Camera / Webcam</span>
                       </button>
 
-                      {/* Button 2: Direct Phone Native Camera */}
                       <button
                         type="button"
                         onClick={() => mobileCameraInputRef.current?.click()}
@@ -836,7 +1432,6 @@ export default function AdminProductsPage() {
                         <span>Phone Camera (Direct)</span>
                       </button>
 
-                      {/* Button 3: Browse Files */}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
@@ -847,7 +1442,6 @@ export default function AdminProductsPage() {
                       </button>
                     </div>
 
-                    {/* Hidden Native File & Camera Inputs */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -906,9 +1500,6 @@ export default function AdminProductsPage() {
                     placeholder="https://images.unsplash.com/... or hosted web image"
                     className="mt-1 min-h-10 w-full rounded-md border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#C5A059]"
                   />
-                  <p className="mt-1 text-[11px] text-[#55504E]">
-                    Provide a direct HTTPS photo URL or leave empty to use Rajwada silk gradient placeholder.
-                  </p>
                 </div>
 
                 <div>
@@ -936,6 +1527,26 @@ export default function AdminProductsPage() {
                     <option value="active">Active (Visible in Public Catalogue)</option>
                     <option value="inactive">Inactive / Draft (Hidden)</option>
                   </select>
+                </div>
+
+                {/* Featured Checkbox */}
+                <div className="sm:col-span-2 rounded-lg border border-[#E5DAC8] bg-[#F4EFE6] p-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.featured)}
+                      onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                      className="h-4 w-4 rounded border-[#E5DAC8] text-[#6B1626] focus:ring-[#C5A059]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#4A0E19]">
+                        ⭐ Mark as Featured Saree
+                      </span>
+                      <p className="text-[11px] text-[#55504E]">
+                        Featured sarees are showcased directly on the homepage and prioritized in catalogue searches.
+                      </p>
+                    </div>
+                  </label>
                 </div>
               </div>
 

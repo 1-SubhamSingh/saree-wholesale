@@ -26,6 +26,7 @@ public class Enquiry {
     private String quantity;
     private String message;
     private EnquiryStatus status = EnquiryStatus.NEW;
+    private String adminNotes;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

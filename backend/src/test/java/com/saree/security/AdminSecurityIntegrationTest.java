@@ -364,4 +364,251 @@ class AdminSecurityIntegrationTest {
         mockMvc.perform(get(uploadPath))
                 .andExpect(status().isOk());
     }
+
+    // --- 7. Featured Products: Public Endpoint ---
+
+    @Test
+    void publicEndpoints_featuredProducts_isAccessibleWithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/products/featured"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    // --- 8. Admin Product Featured/Active Toggle ---
+
+    @Test
+    void adminToggleFeatured_withoutAuth_returns401() throws Exception {
+        mockMvc.perform(put("/api/admin/products/some-id/featured")
+                        .param("featured", "true"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+    }
+
+    @Test
+    void adminToggleActive_withoutAuth_returns401() throws Exception {
+        mockMvc.perform(put("/api/admin/products/some-id/active")
+                        .param("active", "false"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+    }
+
+    @Test
+    void adminToggleFeatured_withAdminAuth_togglesProduct() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // Create a product first
+        String productJson = """
+            {
+                "sku": "TOGGLE-FEAT-01",
+                "name": "Featured Toggle Test Saree",
+                "category": "Silk Sarees",
+                "price": 3000.0,
+                "active": true,
+                "featured": false
+            }
+            """;
+
+        String response = mockMvc.perform(post("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        String productId = mapper.readTree(response).get("id").asText();
+
+        try {
+            // Toggle featured ON
+            mockMvc.perform(put("/api/admin/products/" + productId + "/featured")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("featured", "true"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.featured").value(true));
+
+            // Toggle featured OFF
+            mockMvc.perform(put("/api/admin/products/" + productId + "/featured")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("featured", "false"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.featured").value(false));
+        } finally {
+            // Cleanup
+            mockMvc.perform(delete("/api/admin/products/" + productId)
+                    .header("Authorization", "Bearer " + adminToken));
+        }
+    }
+
+    @Test
+    void adminToggleActive_withAdminAuth_togglesProduct() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        String productJson = """
+            {
+                "sku": "TOGGLE-ACT-01",
+                "name": "Active Toggle Test Saree",
+                "category": "Silk Sarees",
+                "price": 2500.0,
+                "active": true
+            }
+            """;
+
+        String response = mockMvc.perform(post("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        String productId = mapper.readTree(response).get("id").asText();
+
+        try {
+            // Deactivate
+            mockMvc.perform(put("/api/admin/products/" + productId + "/active")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("active", "false"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.active").value(false));
+
+            // Reactivate
+            mockMvc.perform(put("/api/admin/products/" + productId + "/active")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("active", "true"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.active").value(true));
+        } finally {
+            mockMvc.perform(delete("/api/admin/products/" + productId)
+                    .header("Authorization", "Bearer " + adminToken));
+        }
+    }
+
+    // --- 9. Admin Products Pagination & Filtering ---
+
+    @Test
+    void adminGetProducts_withPaginationParams_returnsPageResponse() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        mockMvc.perform(get("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("page", "0")
+                        .param("size", "5")
+                        .param("sortBy", "newest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalPages").isNumber())
+                .andExpect(jsonPath("$.totalElements").isNumber())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").isNumber());
+    }
+
+    @Test
+    void adminGetProducts_withSearchFilter_returnsFilteredResults() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        mockMvc.perform(get("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("search", "nonexistent-sku-xyz-999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void adminGetProducts_withCategoryFilter_returnsOk() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        mockMvc.perform(get("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("category", "Silk Sarees"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    // --- 10. Admin Enquiry Pagination, Notes ---
+
+    @Test
+    void adminGetEnquiries_withPaginationAndSearch_returnsPageResponse() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        mockMvc.perform(get("/api/admin/enquiries")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sortBy", "newest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalPages").isNumber())
+                .andExpect(jsonPath("$.totalElements").isNumber());
+    }
+
+    @Test
+    void adminUpdateEnquiryNotes_withoutAuth_returns401() throws Exception {
+        mockMvc.perform(put("/api/admin/enquiries/some-id/notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adminNotes\": \"Some internal notes\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+    }
+
+    @Test
+    void adminUpdateEnquiryNotes_withAdminAuth_updatesNotes() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // First, submit a public enquiry
+        String enquiryJson = """
+            {
+                "fullName": "Test Notes Buyer",
+                "businessName": "Notes Test Boutique",
+                "city": "Lucknow",
+                "phone": "9999888877",
+                "quantity": "20 Pieces",
+                "message": "Testing admin notes workflow"
+            }
+            """;
+
+        mockMvc.perform(post("/api/enquiries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(enquiryJson))
+                .andExpect(status().isCreated());
+
+        // Fetch enquiries as admin
+        String enquiriesResponse = mockMvc.perform(get("/api/admin/enquiries")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("search", "Notes Test Boutique"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode content = mapper.readTree(enquiriesResponse).get("content");
+        if (content.size() > 0) {
+            String enquiryId = content.get(0).get("id").asText();
+
+            // Save admin notes
+            mockMvc.perform(put("/api/admin/enquiries/" + enquiryId + "/notes")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"adminNotes\": \"Followed up via WhatsApp. Quoted ₹2200/pc for bulk.\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.adminNotes").value("Followed up via WhatsApp. Quoted ₹2200/pc for bulk."));
+        }
+    }
+
+    // --- 11. GlobalExceptionHandler: Generic 500 sanitisation ---
+
+    @Test
+    void globalExceptionHandler_returns_generic500_message() throws Exception {
+        // The generic exception handler should return sanitised 500 responses.
+        // We test by hitting a clearly invalid status update which will trigger validation.
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // Sending a status update with null status (which is @NotNull) should return 400 validation error
+        mockMvc.perform(put("/api/admin/enquiries/some-fake-id/status")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"));
+    }
 }

@@ -1,6 +1,7 @@
 export const COLLECTIONS = [
   {
     id: 'silk',
+    category: 'Silk Sarees',
     title: 'Kanjivaram & Banarasi Silk',
     description: 'Pure zari weaving & luxurious bridal silk sarees direct from master weavers.',
     itemCount: '250+ Designs',
@@ -11,6 +12,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'cotton',
+    category: 'Cotton Handloom',
     title: 'Chanderi & Chanderi Cotton',
     description: 'Breathable, lightweight handloom sarees ideal for summer & daily elegance.',
     itemCount: '180+ Designs',
@@ -21,6 +23,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'designer',
+    category: 'Designer Collection',
     title: 'Organza & Georgette Designer',
     description: 'Contemporary embroidery, sequins & hand-painted luxury party wear.',
     itemCount: '150+ Designs',
@@ -31,6 +34,7 @@ export const COLLECTIONS = [
   },
   {
     id: 'festive',
+    category: 'Festive & Party',
     title: 'Bandhani & Patola Festive',
     description: 'Vibrant traditional tie-dye & double-ikat masterpieces for celebrations.',
     itemCount: '200+ Designs',
