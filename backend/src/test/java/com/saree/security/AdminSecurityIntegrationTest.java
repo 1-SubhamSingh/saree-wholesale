@@ -105,9 +105,53 @@ class AdminSecurityIntegrationTest {
     }
 
     @Test
-    void publicEndpoints_products_isAccessibleWithoutAuth() throws Exception {
+    void publicEndpoints_products_readEndpointsAreAccessibleWithoutAuth() throws Exception {
+        // GET /api/products
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk());
+
+        // GET /api/products/active
+        mockMvc.perform(get("/api/products/active"))
+                .andExpect(status().isOk());
+
+        // GET /api/products/filters
+        mockMvc.perform(get("/api/products/filters"))
+                .andExpect(status().isOk());
+
+        // GET /api/products/{id} without auth allows access (returns 404 for non-existent product rather than 401)
+        mockMvc.perform(get("/api/products/non-existent-product-id"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void publicEndpoints_products_writeEndpointsAreRejectedWithoutAuth() throws Exception {
+        String productJson = """
+            {
+                "sku": "TEST-UNAUTH-01",
+                "name": "Unauthorized Public Product",
+                "category": "Silk",
+                "price": 2500.0
+            }
+            """;
+
+        // POST /api/products without auth must return 401
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+
+        // PUT /api/products/{id} without auth must return 401
+        mockMvc.perform(put("/api/products/sample-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+
+        // DELETE /api/products/{id} without auth must return 401
+        mockMvc.perform(delete("/api/products/sample-id"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
     }
 
     @Test
@@ -140,6 +184,22 @@ class AdminSecurityIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
 
         mockMvc.perform(get("/api/admin/products"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+
+        mockMvc.perform(post("/api/admin/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Unauthorized Saree\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+
+        mockMvc.perform(put("/api/admin/products/sample-id")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Unauthorized Update\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
+
+        mockMvc.perform(delete("/api/admin/products/sample-id"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Unauthorized admin access"));
 
@@ -183,6 +243,69 @@ class AdminSecurityIntegrationTest {
         mockMvc.perform(get("/api/admin/enquiries")
                         .header("Authorization", "Bearer " + validAdminToken))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void protectedEndpoints_adminProductLifecycle_withValidAdminToken_succeeds() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        String newProductJson = """
+            {
+                "sku": "TEST-ADMIN-CRUD-01",
+                "name": "Admin Created Brocade Saree",
+                "category": "Banarasi Weave",
+                "fabric": "Katan Silk",
+                "color": "Royal Crimson",
+                "price": 4500.0,
+                "description": "Exquisite bridal handloom creation",
+                "active": true
+            }
+            """;
+
+        // 1. Create via POST /api/admin/products
+        String responseContent = mockMvc.perform(post("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(newProductJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.name").value("Admin Created Brocade Saree"))
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(responseContent);
+        String createdId = node.get("id").asText();
+
+        // 2. Update via PUT /api/admin/products/{id}
+        String updatedProductJson = """
+            {
+                "sku": "TEST-ADMIN-CRUD-01",
+                "name": "Admin Updated Brocade Saree",
+                "category": "Banarasi Weave",
+                "fabric": "Katan Silk",
+                "color": "Royal Crimson",
+                "price": 4800.0,
+                "description": "Updated description",
+                "active": true
+            }
+            """;
+
+        mockMvc.perform(put("/api/admin/products/" + createdId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updatedProductJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Admin Updated Brocade Saree"))
+                .andExpect(jsonPath("$.price").value(4800.0));
+
+        // 3. Delete via DELETE /api/admin/products/{id}
+        mockMvc.perform(delete("/api/admin/products/" + createdId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        // 4. Verify public GET /{id} now returns 404
+        mockMvc.perform(get("/api/products/" + createdId))
+                .andExpect(status().isNotFound());
     }
 
     @Test
