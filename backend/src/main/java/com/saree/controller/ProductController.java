@@ -59,6 +59,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getActiveProducts());
     }
 
+    @GetMapping("/featured")
+    public ResponseEntity<List<Product>> getFeaturedProducts() {
+        return ResponseEntity.ok(productService.getFeaturedProducts());
+    }
+
     @GetMapping("/filters")
     public ResponseEntity<ProductFilterOptions> getFilterOptions() {
         return ResponseEntity.ok(productService.getFilterOptions());

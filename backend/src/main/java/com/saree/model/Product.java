@@ -34,4 +34,7 @@ public class Product {
     private String imageUrl;
     private List<ProductVariant> variants;
     private Boolean active;
+    private Boolean featured;
+    private java.time.LocalDateTime createdAt;
+    private java.time.LocalDateTime updatedAt;
 }

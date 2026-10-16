@@ -1,6 +1,14 @@
+import { Link } from 'react-router-dom';
+
 export default function CollectionCard({ collection }) {
+  const categoryParam = collection.category || collection.title;
+  const targetUrl = `/catalogue?category=${encodeURIComponent(categoryParam)}`;
+
   return (
-    <div className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-3 shadow-sm transition-all duration-300 hover:shadow-xl sm:p-6">
+    <Link
+      to={targetUrl}
+      className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-3 shadow-sm transition-all duration-300 hover:border-[#C5A059] hover:shadow-xl sm:p-6"
+    >
       <div className="mb-3 flex items-start justify-between gap-2 sm:mb-4">
         <span className="shrink-0 text-2xl sm:text-3xl">
           {collection.symbol}
@@ -39,12 +47,12 @@ export default function CollectionCard({ collection }) {
       </div>
 
       <div className="mt-3 flex min-w-0 items-center justify-between gap-3 border-t border-[#E5DAC8] pt-3 text-xs font-semibold text-[#6B1626] transition-colors group-hover:text-[#4A0E19] sm:mt-4 sm:pt-4">
-        <span className="min-w-0 truncate">Browse Catalogue</span>
+        <span className="min-w-0 truncate">Browse {collection.title}</span>
 
         <span className="shrink-0 transform transition-transform group-hover:translate-x-1">
           →
         </span>
       </div>
-    </div>
+    </Link>
   );
 }

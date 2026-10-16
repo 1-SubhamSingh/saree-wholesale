@@ -69,9 +69,16 @@ public class AdminController {
 
     // --- Admin Product CRUD ---
     @GetMapping("/products")
-    public ResponseEntity<List<Product>> getAllProductsAdmin() {
-        List<Product> products = productService.getAllProducts();
-        return ResponseEntity.ok(products);
+    public ResponseEntity<com.saree.dto.PageResponse<Product>> getAdminProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) String sortBy) {
+        org.springframework.data.domain.Page<Product> productPage =
+                productService.getAdminProducts(page, size, search, category, active, sortBy);
+        return ResponseEntity.ok(com.saree.dto.PageResponse.from(productPage));
     }
 
     @PostMapping("/products")
@@ -89,6 +96,28 @@ public class AdminController {
         return ResponseEntity.ok(updated);
     }
 
+    @PutMapping("/products/{id}/featured")
+    public ResponseEntity<Product> toggleFeatured(
+            @PathVariable String id,
+            @RequestParam(required = false) Boolean featured) {
+        Product updated = productService.toggleFeatured(id, featured);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/products/{id}/active")
+    public ResponseEntity<Product> toggleActive(
+            @PathVariable String id,
+            @RequestParam(required = false) Boolean active) {
+        Product updated = productService.toggleActive(id, active);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
     @DeleteMapping("/products/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable String id) {
         productService.deleteProduct(id);
@@ -97,9 +126,15 @@ public class AdminController {
 
     // --- Admin Enquiry Management ---
     @GetMapping("/enquiries")
-    public ResponseEntity<List<Enquiry>> getAllEnquiries() {
-        List<Enquiry> enquiries = enquiryService.getAllEnquiries();
-        return ResponseEntity.ok(enquiries);
+    public ResponseEntity<com.saree.dto.PageResponse<Enquiry>> getEnquiries(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) com.saree.model.EnquiryStatus status,
+            @RequestParam(required = false) String sortBy) {
+        org.springframework.data.domain.Page<Enquiry> enquiryPage =
+                enquiryService.getEnquiries(page, size, search, status, sortBy);
+        return ResponseEntity.ok(com.saree.dto.PageResponse.from(enquiryPage));
     }
 
     @GetMapping("/enquiries/{id}")
@@ -112,8 +147,22 @@ public class AdminController {
     }
 
     @PutMapping("/enquiries/{id}/status")
-    public ResponseEntity<Enquiry> updateEnquiryStatus(@PathVariable String id, @Valid @RequestBody EnquiryStatusUpdateDto dto) {
-        Enquiry updated = enquiryService.updateEnquiryStatus(id, dto.getStatus());
+    public ResponseEntity<Enquiry> updateEnquiryStatus(
+            @PathVariable String id,
+            @Valid @RequestBody EnquiryStatusUpdateDto dto) {
+        Enquiry updated = enquiryService.updateEnquiryStatus(id, dto.getStatus(), dto.getAdminNotes());
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/enquiries/{id}/notes")
+    public ResponseEntity<Enquiry> updateEnquiryNotes(
+            @PathVariable String id,
+            @RequestBody Map<String, String> body) {
+        String notes = body != null ? body.get("adminNotes") : null;
+        Enquiry updated = enquiryService.updateEnquiryNotes(id, notes);
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }

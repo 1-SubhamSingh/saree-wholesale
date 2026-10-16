@@ -8,6 +8,7 @@ import com.saree.model.Product;
 
 public interface ProductRepository extends MongoRepository<Product, String> {
     List<Product> findByActiveTrue();
+    List<Product> findByActiveTrueAndFeaturedTrue();
     long countByActiveTrue();
     long countByActiveFalse();
     boolean existsBySku(String sku);

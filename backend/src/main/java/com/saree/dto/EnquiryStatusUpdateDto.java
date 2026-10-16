@@ -14,4 +14,7 @@ public class EnquiryStatusUpdateDto {
 
     @NotNull(message = "Status cannot be null")
     private EnquiryStatus status;
+
+    private String adminNotes;
 }
+    
