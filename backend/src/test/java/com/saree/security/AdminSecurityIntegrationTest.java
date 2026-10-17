@@ -2,6 +2,7 @@ package com.saree.security;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -25,6 +26,9 @@ class AdminSecurityIntegrationTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Value("${admin.password:admin123}")
+    private String adminPassword;
+
     // --- 1. Login Tests ---
 
     @Test
@@ -32,9 +36,9 @@ class AdminSecurityIntegrationTest {
         String loginJson = """
             {
                 "username": "admin1",
-                "password": "admin123"
+                "password": "%s"
             }
-            """;
+            """.formatted(adminPassword);
 
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -68,9 +72,9 @@ class AdminSecurityIntegrationTest {
         String loginJson = """
             {
                 "username": "nonExistentUser",
-                "password": "admin123"
+                "password": "%s"
             }
-            """;
+            """.formatted(adminPassword);
 
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
