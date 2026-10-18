@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ScrollToTop from './components/common/ScrollToTop';
 import HomePage from './pages/HomePage';
 import CataloguePage from './pages/CataloguePage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
@@ -20,6 +21,7 @@ function ProtectedAdminRoute({ children }) {
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Public Storefront Routes */}
         <Route path="/" element={<HomePage />} />

@@ -31,6 +31,10 @@ export default function EnquiryPage() {
   const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
+
+  useEffect(() => {
     // Load active products from backend for product dropdown
     getActiveProducts()
       .then((res) => {
@@ -103,7 +107,10 @@ export default function EnquiryPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (!validate()) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
@@ -119,12 +126,14 @@ export default function EnquiryPage() {
         message: formData.message.trim(),
       });
       setSubmitted(true);
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Failed to submit enquiry:', err);
       setSubmitError(
         err.response?.data?.message ||
           'Failed to send enquiry. Please check your network connection and try again.'
       );
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
     }
@@ -144,6 +153,7 @@ export default function EnquiryPage() {
     setErrors({});
     setSubmitted(false);
     setSubmitError(null);
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   };
 
   const inputClass = (error) =>
