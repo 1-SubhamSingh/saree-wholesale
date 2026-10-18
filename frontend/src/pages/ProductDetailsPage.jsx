@@ -96,6 +96,7 @@ export default function ProductDetailsPage() {
         saree.name
       )}&sku=${encodeURIComponent(saree.sku)}`
     );
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const hasImage = Boolean(saree.imageUrl && saree.imageUrl.trim());
