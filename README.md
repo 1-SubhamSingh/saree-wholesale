@@ -19,7 +19,6 @@ saree-wholesale/
 │   ├── Dockerfile        # Multi-stage Dockerfile (Maven -> Temurin JRE 21)
 │   └── ...
 ├── docker-compose.yml    # Root Docker Compose orchestration
-├── .env.example          # Environment variables template
 ├── .dockerignore         # Root Docker ignore rules
 ├── .gitignore            # Git ignore configuration
 └── README.md             # Project documentation
@@ -34,30 +33,24 @@ saree-wholesale/
 
 ### Quick Start
 
-1. **Configure Environment Variables (Optional)**
-   Copy `.env.example` to `.env` if you wish to customize ports, credentials, or secrets:
-   ```bash
-   cp .env.example .env
-   ```
-   *(Default values are pre-configured in `docker-compose.yml` to run out of the box).*
-
-2. **Build and Start All Containers**
+1. **Build and Start All Containers**
    ```bash
    docker compose up --build -d
    ```
+   *(Default configuration and ports are pre-configured in `docker-compose.yml` to run out of the box).*
 
-3. **Check Service Status**
+2. **Check Service Status**
    ```bash
    docker compose ps
    ```
 
-4. **Access the Application**
+3. **Access the Application**
    - **Frontend Web UI**: [http://localhost](http://localhost) (or port `80`)
    - **Backend API Direct**: [http://localhost:8080/api](http://localhost:8080/api)
    - **Backend Health Check**: [http://localhost:8080/api/health](http://localhost:8080/api/health)
    - **MongoDB Direct**: `localhost:27018` (mapped to internal `27017` to prevent collisions with any host MongoDB)
 
-5. **View Logs**
+4. **View Logs**
    ```bash
    # Follow all logs
    docker compose logs -f
@@ -68,7 +61,7 @@ saree-wholesale/
    docker compose logs -f mongodb
    ```
 
-6. **Stop the Application**
+5. **Stop the Application**
    ```bash
    docker compose down
    ```
