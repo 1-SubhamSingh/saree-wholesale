@@ -49,6 +49,39 @@ public class DashboardService {
                 .filter(p -> p.getCategory() != null && !p.getCategory().isBlank())
                 .collect(Collectors.groupingBy(Product::getCategory, Collectors.counting()));
 
+        // Mini CRM follow-up calculations
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        List<Enquiry> todayFollowUpsList = enquiries.stream()
+                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isEqual(today))
+                .sorted((a, b) -> b.getUpdatedAt() != null && a.getUpdatedAt() != null ? b.getUpdatedAt().compareTo(a.getUpdatedAt()) : 0)
+                .limit(10)
+                .collect(Collectors.toList());
+        long todayFollowUps = enquiries.stream()
+                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isEqual(today))
+                .count();
+
+        List<Enquiry> overdueFollowUpsList = enquiries.stream()
+                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isBefore(today) && e.getStatus() != EnquiryStatus.CLOSED)
+                .sorted((a, b) -> a.getFollowUpDate().compareTo(b.getFollowUpDate()))
+                .limit(10)
+                .collect(Collectors.toList());
+        long overdueFollowUps = enquiries.stream()
+                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isBefore(today) && e.getStatus() != EnquiryStatus.CLOSED)
+                .count();
+
+        List<Enquiry> newEnquiriesList = enquiries.stream()
+                .filter(e -> e.getStatus() == EnquiryStatus.NEW)
+                .sorted((a, b) -> b.getCreatedAt() != null && a.getCreatedAt() != null ? b.getCreatedAt().compareTo(a.getCreatedAt()) : 0)
+                .limit(10)
+                .collect(Collectors.toList());
+
+        List<Enquiry> inProgressEnquiriesList = enquiries.stream()
+                .filter(e -> e.getStatus() == EnquiryStatus.IN_PROGRESS || e.getStatus() == EnquiryStatus.CONTACTED)
+                .sorted((a, b) -> b.getUpdatedAt() != null && a.getUpdatedAt() != null ? b.getUpdatedAt().compareTo(a.getUpdatedAt()) : 0)
+                .limit(10)
+                .collect(Collectors.toList());
+
         return DashboardStatsDto.builder()
                 .totalProducts(totalProducts)
                 .activeProducts(activeProducts)
@@ -60,6 +93,12 @@ public class DashboardService {
                 .closedEnquiries(closedEnquiries)
                 .enquiriesByStatus(enquiriesByStatus)
                 .productsByCategory(productsByCategory)
+                .todayFollowUps(todayFollowUps)
+                .overdueFollowUps(overdueFollowUps)
+                .todayFollowUpsList(todayFollowUpsList)
+                .overdueFollowUpsList(overdueFollowUpsList)
+                .newEnquiriesList(newEnquiriesList)
+                .inProgressEnquiriesList(inProgressEnquiriesList)
                 .build();
     }
 }

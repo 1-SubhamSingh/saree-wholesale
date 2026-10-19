@@ -58,10 +58,21 @@ public class SecurityConfig {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
-        if (!origins.contains("http://localhost:5173")) {
-            origins.add("http://localhost:5173");
+
+        List<String> patterns = new java.util.ArrayList<>(origins);
+        List<String> defaults = List.of(
+                "http://localhost",
+                "http://localhost:*",
+                "http://127.0.0.1",
+                "http://127.0.0.1:*"
+        );
+        for (String def : defaults) {
+            if (!patterns.contains(def)) {
+                patterns.add(def);
+            }
         }
-        configuration.setAllowedOrigins(origins);
+
+        configuration.setAllowedOriginPatterns(patterns);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

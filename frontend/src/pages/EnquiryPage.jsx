@@ -10,11 +10,25 @@ export default function EnquiryPage() {
   const initialProduct = searchParams.get('product') || '';
   const initialSku = searchParams.get('sku') || '';
 
+  const normalizePhone = (raw) => {
+    if (!raw) return '';
+    let cleaned = raw.replace(/[\s-]/g, '');
+    if (cleaned.startsWith('+91')) {
+      cleaned = cleaned.slice(3);
+    } else if (cleaned.startsWith('91') && cleaned.length === 12) {
+      cleaned = cleaned.slice(2);
+    } else if (cleaned.startsWith('0') && cleaned.length === 11) {
+      cleaned = cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
     phone: '',
+    email: '',
     city: '',
     selectedProduct: initialProduct
       ? `${initialProduct} (${initialSku})`
@@ -22,7 +36,8 @@ export default function EnquiryPage() {
     quantity: '5 Sets',
     message: initialProduct
       ? `Interested in bulk ordering ${initialProduct} (${initialSku}). Please share price list & swatch box details.`
-      : ''
+      : '',
+    website: '', // Honeypot field for anti-spam
   });
 
   const [errors, setErrors] = useState({});
@@ -67,12 +82,19 @@ export default function EnquiryPage() {
     }
 
     const phoneRegex = /^[0-9]{10}$/;
-    const cleanPhone = formData.phone.replace(/[\s-]/g, '');
+    const cleanPhone = normalizePhone(formData.phone);
 
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone / WhatsApp number is required.';
     } else if (!phoneRegex.test(cleanPhone)) {
       newErrors.phone = 'Please enter a valid 10-digit mobile number.';
+    }
+
+    if (formData.email && formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        newErrors.email = 'Please enter a valid email address.';
+      }
     }
 
     if (!formData.city.trim()) {
@@ -115,15 +137,29 @@ export default function EnquiryPage() {
     setSubmitting(true);
     setSubmitError(null);
 
+    const normalizedPhone = normalizePhone(formData.phone);
+
+    // Extract SKU if available
+    let sku = initialSku || '';
+    if (!sku && formData.selectedProduct) {
+      const match = formData.selectedProduct.match(/\(([^)]+)\)$/);
+      if (match) {
+        sku = match[1].trim();
+      }
+    }
+
     try {
       await submitEnquiry({
         fullName: formData.fullName.trim(),
         businessName: formData.businessName.trim(),
-        phone: formData.phone.trim(),
+        phone: normalizedPhone,
+        email: formData.email && formData.email.trim() ? formData.email.trim() : null,
         city: formData.city.trim(),
         selectedProduct: formData.selectedProduct || 'General Wholesale Inquiry',
+        sku: sku || null,
         quantity: formData.quantity,
         message: formData.message.trim(),
+        website: formData.website || '',
       });
       setSubmitted(true);
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -144,10 +180,12 @@ export default function EnquiryPage() {
       fullName: '',
       businessName: '',
       phone: '',
+      email: '',
       city: '',
       selectedProduct: '',
       quantity: '5 Sets',
-      message: ''
+      message: '',
+      website: '',
     });
 
     setErrors({});
@@ -233,6 +271,20 @@ export default function EnquiryPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Honeypot anti-spam field (hidden from real users, filled by bots) */}
+                <div style={{ display: 'none', position: 'absolute', left: '-9999px' }} aria-hidden="true">
+                  <label htmlFor="website">Website</label>
+                  <input
+                    id="website"
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={formData.website || ''}
+                    onChange={handleChange}
+                  />
+                </div>
+
                 {submitError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
                     {submitError}
@@ -340,6 +392,39 @@ export default function EnquiryPage() {
                         className="text-xs font-medium text-red-600"
                       >
                         {errors.phone}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-1.5">
+                    <label
+                      htmlFor="email"
+                      className="block text-xs font-bold uppercase tracking-wider text-[#4A0E19]"
+                    >
+                      Email Address <span className="text-[10px] font-normal lowercase text-[#55504E]">(for order copy)</span>
+                    </label>
+
+                    <input
+                      id="email"
+                      type="email"
+                      name="email"
+                      placeholder="e.g. contact@boutique.com"
+                      value={formData.email || ''}
+                      onChange={handleChange}
+                      autoComplete="email"
+                      className={inputClass(errors.email)}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={
+                        errors.email ? 'email-error' : undefined
+                      }
+                    />
+
+                    {errors.email && (
+                      <p
+                        id="email-error"
+                        className="text-xs font-medium text-red-600"
+                      >
+                        {errors.email}
                       </p>
                     )}
                   </div>

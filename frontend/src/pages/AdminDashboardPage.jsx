@@ -129,60 +129,386 @@ export default function AdminDashboardPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              {/* Top KPI Cards */}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
-                <div className="rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 shadow-sm sm:p-5">
+              {/* Top KPI Cards Grid */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 sm:gap-4">
+                <div className="rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 shadow-sm">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#55504E]">
                     Total Products
                   </p>
-                  <p className="mt-2 font-serif text-3xl font-bold text-[#4A0E19] sm:text-4xl">
+                  <p className="mt-2 font-serif text-2xl font-bold text-[#4A0E19] sm:text-3xl">
                     {stats?.totalProducts ?? 0}
                   </p>
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-[#55504E]">
-                    <span className="font-semibold text-emerald-700">
-                      {stats?.activeProducts ?? 0} active
-                    </span>
-                    <span>•</span>
-                    <span className="text-amber-700">
-                      {stats?.inactiveProducts ?? 0} draft
-                    </span>
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-[#55504E]">
+                    <span className="font-semibold text-emerald-700">{stats?.activeProducts ?? 0} active</span>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 shadow-sm sm:p-5">
+                <div className="rounded-xl border border-[#E5DAC8] bg-[#F4EFE6] p-4 shadow-sm">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[#55504E]">
                     Total Enquiries
                   </p>
-                  <p className="mt-2 font-serif text-3xl font-bold text-[#6B1626] sm:text-4xl">
+                  <p className="mt-2 font-serif text-2xl font-bold text-[#6B1626] sm:text-3xl">
                     {stats?.totalEnquiries ?? 0}
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-[#C5A059]">
-                    Lifetime B2B Submissions
+                  <p className="mt-1 text-[11px] font-semibold text-[#C5A059]">
+                    Lifetime Leads
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-amber-300 bg-amber-50/70 p-4 shadow-sm sm:p-5">
+                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 shadow-sm">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                    New Actionable
+                    New Leads
                   </p>
-                  <p className="mt-2 font-serif text-3xl font-bold text-amber-900 sm:text-4xl">
+                  <p className="mt-2 font-serif text-2xl font-bold text-amber-900 sm:text-3xl">
                     {stats?.newEnquiries ?? 0}
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-amber-800">
-                    Awaiting First Response
+                  <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                    Needs Contact
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 p-4 shadow-sm sm:p-5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                    In Progress / Deals
+                <div className="rounded-xl border border-purple-300 bg-purple-50/80 p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-purple-900">
+                    In Progress
                   </p>
-                  <p className="mt-2 font-serif text-3xl font-bold text-emerald-900 sm:text-4xl">
-                    {(stats?.contactedEnquiries ?? 0) + (stats?.inProgressEnquiries ?? 0)}
+                  <p className="mt-2 font-serif text-2xl font-bold text-purple-900 sm:text-3xl">
+                    {stats?.inProgressEnquiries ?? 0}
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-emerald-800">
-                    Active Wholesale Discussions
+                  <p className="mt-1 text-[11px] font-semibold text-purple-800">
+                    Active Deals
                   </p>
+                </div>
+
+                <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-900">
+                    Today's Follow-ups
+                  </p>
+                  <p className="mt-2 font-serif text-2xl font-bold text-blue-900 sm:text-3xl">
+                    {stats?.todayFollowUps ?? 0}
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold text-blue-800">
+                    Scheduled Today
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-red-300 bg-red-50/80 p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-red-900">
+                    Overdue Follow-ups
+                  </p>
+                  <p className="mt-2 font-serif text-2xl font-bold text-red-900 sm:text-3xl">
+                    {stats?.overdueFollowUps ?? 0}
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold text-red-800">
+                    Action Required
+                  </p>
+                </div>
+              </div>
+
+              {/* MINI CRM SECTIONS */}
+              <div className="space-y-6">
+                {/* 1. Today's Follow-ups */}
+                <div className="rounded-xl border border-blue-200 bg-[#FAF7F2] p-5 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[#E5DAC8] pb-3 mb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">📅</span>
+                        <h2 className="font-serif text-lg font-bold text-[#4A0E19]">Today's Follow-ups</h2>
+                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
+                          {stats?.todayFollowUps ?? 0} Scheduled
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#55504E] mt-0.5">Wholesale buyers scheduled for callback or order finalisation today.</p>
+                    </div>
+                    <Link
+                      to="/admin/products?tab=enquiries&followUp=today"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-900"
+                    >
+                      View All Today's Follow-ups ➔
+                    </Link>
+                  </div>
+
+                  {stats?.todayFollowUpsList && stats.todayFollowUpsList.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-left text-xs divide-y divide-[#E5DAC8]">
+                        <thead className="bg-[#F4EFE6] text-[#4A0E19]">
+                          <tr>
+                            <th className="px-3 py-2.5 font-bold uppercase">Buyer / Business</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Contact</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Product &amp; Volume</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Assigned To</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Notes</th>
+                            <th className="px-3 py-2.5 text-right font-bold uppercase">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5DAC8]">
+                          {stats.todayFollowUpsList.map((enq) => {
+                            const cleanPhone = enq.phone ? enq.phone.replace(/[^0-9]/g, '') : '';
+                            const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                            return (
+                              <tr key={enq.id} className="hover:bg-[#F4EFE6]/50">
+                                <td className="px-3 py-2.5">
+                                  <div className="font-bold text-[#4A0E19]">{enq.fullName}</div>
+                                  <div className="text-[#55504E]">{enq.businessName} • {enq.city}</div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <div className="font-mono text-[#6B1626] font-semibold">{enq.phone}</div>
+                                  {enq.preferredContactMethod && (
+                                    <span className="text-[10px] font-bold text-blue-700 uppercase">
+                                      Pref: {enq.preferredContactMethod}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <div className="font-medium text-[#1F1C1D]">{enq.selectedProduct || 'General Enquiry'}</div>
+                                  <div className="text-[#55504E]">{enq.quantity}</div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className="rounded bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                                    {enq.assignedTo || 'Unassigned'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 max-w-[180px] truncate text-[#55504E]">
+                                  {enq.adminNotes || '—'}
+                                </td>
+                                <td className="px-3 py-2.5 text-right space-x-1.5 whitespace-nowrap">
+                                  {cleanPhone && (
+                                    <a
+                                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Namaste ${enq.fullName}, following up from Rajwada Sarees regarding your wholesale enquiry.`)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
+                                      title="WhatsApp"
+                                    >
+                                      WA 💬
+                                    </a>
+                                  )}
+                                  <Link
+                                    to="/admin/products?tab=enquiries"
+                                    className="rounded border border-[#C5A059] bg-[#FAF7F2] px-2.5 py-1 text-[11px] font-semibold text-[#4A0E19] hover:bg-[#F4EFE6]"
+                                  >
+                                    Manage ➔
+                                  </Link>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs text-[#55504E] italic">
+                      ✨ No follow-ups scheduled for today. Great job staying on top of leads!
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Overdue Follow-ups */}
+                <div className="rounded-xl border border-red-200 bg-[#FAF7F2] p-5 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[#E5DAC8] pb-3 mb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-700">⚠️</span>
+                        <h2 className="font-serif text-lg font-bold text-red-900">Overdue Follow-ups</h2>
+                        <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800">
+                          {stats?.overdueFollowUps ?? 0} Pending
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#55504E] mt-0.5">Leads whose scheduled follow-up date has passed without closing.</p>
+                    </div>
+                    <Link
+                      to="/admin/products?tab=enquiries&followUp=overdue"
+                      className="text-xs font-bold text-red-700 hover:text-red-900"
+                    >
+                      View All Overdue Follow-ups ➔
+                    </Link>
+                  </div>
+
+                  {stats?.overdueFollowUpsList && stats.overdueFollowUpsList.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-left text-xs divide-y divide-[#E5DAC8]">
+                        <thead className="bg-red-50 text-red-900">
+                          <tr>
+                            <th className="px-3 py-2.5 font-bold uppercase">Buyer / Business</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Contact</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Due Date</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Assigned To</th>
+                            <th className="px-3 py-2.5 font-bold uppercase">Last Contacted</th>
+                            <th className="px-3 py-2.5 text-right font-bold uppercase">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5DAC8]">
+                          {stats.overdueFollowUpsList.map((enq) => {
+                            const cleanPhone = enq.phone ? enq.phone.replace(/[^0-9]/g, '') : '';
+                            const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                            return (
+                              <tr key={enq.id} className="hover:bg-red-50/40">
+                                <td className="px-3 py-2.5">
+                                  <div className="font-bold text-[#4A0E19]">{enq.fullName}</div>
+                                  <div className="text-[#55504E]">{enq.businessName} • {enq.city}</div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <div className="font-mono text-[#6B1626] font-semibold">{enq.phone}</div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className="font-bold text-red-700 bg-red-100 rounded px-2 py-0.5">
+                                    {enq.followUpDate}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-[#1F1C1D]">
+                                    {enq.assignedTo || 'Unassigned'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-[#55504E]">
+                                  {enq.lastContactedAt ? new Date(enq.lastContactedAt).toLocaleDateString('en-IN') : 'Never'}
+                                </td>
+                                <td className="px-3 py-2.5 text-right space-x-1.5 whitespace-nowrap">
+                                  {cleanPhone && (
+                                    <a
+                                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Namaste ${enq.fullName}, checking in from Rajwada Sarees regarding your bulk enquiry.`)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
+                                      title="WhatsApp"
+                                    >
+                                      WA 💬
+                                    </a>
+                                  )}
+                                  <Link
+                                    to="/admin/products?tab=enquiries"
+                                    className="rounded border border-[#6B1626] bg-[#6B1626] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#4A0E19]"
+                                  >
+                                    Take Action ➔
+                                  </Link>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs text-emerald-700 font-medium">
+                      ✓ No overdue follow-ups! All buyer leads are actively handled.
+                    </div>
+                  )}
+                </div>
+
+                {/* 3 & 4. New Enquiries and In-Progress Enquiries Side-by-Side */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {/* New Enquiries */}
+                  <div className="rounded-xl border border-amber-200 bg-[#FAF7F2] p-5 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-[#E5DAC8] pb-3 mb-3">
+                      <div>
+                        <h2 className="font-serif text-base font-bold text-amber-900">
+                          New Wholesale Enquiries ({stats?.newEnquiries ?? 0})
+                        </h2>
+                        <p className="text-[11px] text-[#55504E]">Recent submissions requiring initial contact.</p>
+                      </div>
+                      <Link
+                        to="/admin/products?tab=enquiries&status=NEW"
+                        className="text-xs font-bold text-[#6B1626] hover:underline"
+                      >
+                        All New ➔
+                      </Link>
+                    </div>
+
+                    {stats?.newEnquiriesList && stats.newEnquiriesList.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {stats.newEnquiriesList.map((enq) => {
+                          const cleanPhone = enq.phone ? enq.phone.replace(/[^0-9]/g, '') : '';
+                          const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                          return (
+                            <div key={enq.id} className="flex items-center justify-between rounded-lg border border-[#E5DAC8] bg-[#F4EFE6]/60 p-2.5 text-xs">
+                              <div className="min-w-0 pr-2">
+                                <div className="font-bold text-[#4A0E19] truncate">{enq.fullName} ({enq.businessName})</div>
+                                <div className="text-[11px] text-[#55504E] truncate">{enq.selectedProduct || 'Catalogue'} • {enq.city}</div>
+                                <div className="text-[10px] text-[#C5A059] font-medium font-mono">{enq.phone}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Namaste ${enq.fullName}, thank you for your enquiry at Rajwada Sarees.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                  >
+                                    WA
+                                  </a>
+                                )}
+                                <Link
+                                  to="/admin/products?tab=enquiries"
+                                  className="rounded border border-[#C5A059] bg-[#FAF7F2] px-2 py-1 text-[10px] font-semibold text-[#4A0E19]"
+                                >
+                                  Open
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="py-4 text-center text-xs text-[#55504E]">No new unattended enquiries.</p>
+                    )}
+                  </div>
+
+                  {/* In-Progress Enquiries */}
+                  <div className="rounded-xl border border-purple-200 bg-[#FAF7F2] p-5 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-[#E5DAC8] pb-3 mb-3">
+                      <div>
+                        <h2 className="font-serif text-base font-bold text-purple-900">
+                          In-Progress Negotiations ({stats?.inProgressEnquiries ?? 0})
+                        </h2>
+                        <p className="text-[11px] text-[#55504E]">Active price quotes, swatch shipments &amp; bulk discussions.</p>
+                      </div>
+                      <Link
+                        to="/admin/products?tab=enquiries&status=IN_PROGRESS"
+                        className="text-xs font-bold text-[#6B1626] hover:underline"
+                      >
+                        All In-Progress ➔
+                      </Link>
+                    </div>
+
+                    {stats?.inProgressEnquiriesList && stats.inProgressEnquiriesList.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {stats.inProgressEnquiriesList.map((enq) => {
+                          const cleanPhone = enq.phone ? enq.phone.replace(/[^0-9]/g, '') : '';
+                          const waNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                          return (
+                            <div key={enq.id} className="flex items-center justify-between rounded-lg border border-[#E5DAC8] bg-[#F4EFE6]/60 p-2.5 text-xs">
+                              <div className="min-w-0 pr-2">
+                                <div className="font-bold text-[#4A0E19] truncate">{enq.fullName} ({enq.businessName})</div>
+                                <div className="text-[11px] text-[#55504E] truncate">
+                                  {enq.assignedTo ? `Rep: ${enq.assignedTo} • ` : ''}Next: {enq.followUpDate || 'Not set'}
+                                </div>
+                                <div className="text-[10px] italic text-[#55504E] truncate">{enq.adminNotes || 'No notes'}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Namaste ${enq.fullName}, following up from Rajwada Sarees.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                  >
+                                    WA
+                                  </a>
+                                )}
+                                <Link
+                                  to="/admin/products?tab=enquiries"
+                                  className="rounded border border-[#C5A059] bg-[#FAF7F2] px-2 py-1 text-[10px] font-semibold text-[#4A0E19]"
+                                >
+                                  Open
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="py-4 text-center text-xs text-[#55504E]">No in-progress discussions recorded.</p>
+                    )}
+                  </div>
                 </div>
               </div>
 

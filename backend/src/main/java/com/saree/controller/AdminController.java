@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.saree.dto.DashboardStatsDto;
+import com.saree.dto.EnquiryFollowUpDto;
 import com.saree.dto.EnquiryStatusUpdateDto;
 import com.saree.dto.ProductRequestDto;
 import com.saree.model.Enquiry;
@@ -136,9 +137,10 @@ public class AdminController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) com.saree.model.EnquiryStatus status,
-            @RequestParam(required = false) String sortBy) {
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String followUp) {
         org.springframework.data.domain.Page<Enquiry> enquiryPage =
-                enquiryService.getEnquiries(page, size, search, status, sortBy);
+                enquiryService.getEnquiries(page, size, search, status, sortBy, followUp);
         return ResponseEntity.ok(com.saree.dto.PageResponse.from(enquiryPage));
     }
 
@@ -155,7 +157,18 @@ public class AdminController {
     public ResponseEntity<Enquiry> updateEnquiryStatus(
             @PathVariable String id,
             @Valid @RequestBody EnquiryStatusUpdateDto dto) {
-        Enquiry updated = enquiryService.updateEnquiryStatus(id, dto.getStatus(), dto.getAdminNotes());
+        Enquiry updated = enquiryService.updateEnquiryStatus(id, dto);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/enquiries/{id}/follow-up")
+    public ResponseEntity<Enquiry> updateEnquiryFollowUp(
+            @PathVariable String id,
+            @Valid @RequestBody EnquiryFollowUpDto dto) {
+        Enquiry updated = enquiryService.updateEnquiryFollowUp(id, dto);
         if (updated == null) {
             return ResponseEntity.notFound().build();
         }
