@@ -8,6 +8,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.saree.exception.DuplicateSkuException;
+import com.saree.exception.ProductNotFoundException;
 import com.saree.model.Product;
 import com.saree.repository.ProductRepository;
 
@@ -23,6 +25,131 @@ class ProductServiceTest {
         storageService = mock(StorageService.class);
         service = new ProductService(repository, storageService);
     }
+
+    // --- getProductById: inactive product security fix ---
+
+    @Test
+    void getProductById_returnsActiveProduct() {
+        Product product = new Product();
+        product.setId("1");
+        product.setActive(true);
+        when(repository.findById("1")).thenReturn(Optional.of(product));
+
+        Product result = service.getProductById("1");
+
+        assertNotNull(result);
+        assertEquals("1", result.getId());
+    }
+
+    @Test
+    void getProductById_returnsProductWithNullActive() {
+        // Products with null active field are treated as active (legacy data)
+        Product product = new Product();
+        product.setId("2");
+        product.setActive(null);
+        when(repository.findById("2")).thenReturn(Optional.of(product));
+
+        Product result = service.getProductById("2");
+
+        assertNotNull(result);
+        assertEquals("2", result.getId());
+    }
+
+    @Test
+    void getProductById_throwsForInactiveProduct() {
+        Product product = new Product();
+        product.setId("3");
+        product.setActive(false);
+        when(repository.findById("3")).thenReturn(Optional.of(product));
+
+        assertThrows(ProductNotFoundException.class, () -> service.getProductById("3"));
+    }
+
+    @Test
+    void getProductById_throwsForNonExistentProduct() {
+        when(repository.findById("999")).thenReturn(Optional.empty());
+
+        assertThrows(ProductNotFoundException.class, () -> service.getProductById("999"));
+    }
+
+    @Test
+    void getProductByIdForAdmin_returnsInactiveProduct() {
+        Product product = new Product();
+        product.setId("3");
+        product.setActive(false);
+        when(repository.findById("3")).thenReturn(Optional.of(product));
+
+        Product result = service.getProductByIdForAdmin("3");
+
+        assertNotNull(result);
+        assertFalse(result.getActive());
+    }
+
+    @Test
+    void getProductByIdForAdmin_returnsNullForNonExistent() {
+        when(repository.findById("999")).thenReturn(Optional.empty());
+
+        Product result = service.getProductByIdForAdmin("999");
+
+        assertNull(result);
+    }
+
+    // --- Unique SKU enforcement ---
+
+    @Test
+    void createProduct_throwsForDuplicateSku() {
+        Product product = new Product();
+        product.setSku("SKU-001");
+        when(repository.existsBySku("SKU-001")).thenReturn(true);
+
+        assertThrows(DuplicateSkuException.class, () -> service.createProduct(product));
+    }
+
+    @Test
+    void createProduct_succeedsForUniqueSku() {
+        Product product = new Product();
+        product.setSku("SKU-UNIQUE");
+        when(repository.existsBySku("SKU-UNIQUE")).thenReturn(false);
+        when(repository.save(any(Product.class))).thenReturn(product);
+
+        Product result = service.createProduct(product);
+
+        assertNotNull(result);
+        verify(repository).save(any(Product.class));
+    }
+
+    @Test
+    void updateProduct_throwsWhenSkuChangedToDuplicate() {
+        Product existing = new Product();
+        existing.setId("1");
+        existing.setSku("SKU-OLD");
+        when(repository.findById("1")).thenReturn(Optional.of(existing));
+
+        Product update = new Product();
+        update.setSku("SKU-TAKEN");
+        when(repository.existsBySku("SKU-TAKEN")).thenReturn(true);
+
+        assertThrows(DuplicateSkuException.class, () -> service.updateProduct("1", update));
+    }
+
+    @Test
+    void updateProduct_allowsSameSkuOnSameProduct() {
+        Product existing = new Product();
+        existing.setId("1");
+        existing.setSku("SKU-SAME");
+        when(repository.findById("1")).thenReturn(Optional.of(existing));
+
+        Product update = new Product();
+        update.setSku("SKU-SAME");
+        when(repository.save(any(Product.class))).thenReturn(update);
+
+        Product result = service.updateProduct("1", update);
+
+        assertNotNull(result);
+        verify(repository, never()).existsBySku(anyString());
+    }
+
+    // --- Existing tests (preserved) ---
 
     @Test
     void replacesManagedImage() {

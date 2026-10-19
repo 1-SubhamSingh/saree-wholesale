@@ -2,6 +2,7 @@ package com.saree.controller;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,9 +10,10 @@ import org.springframework.web.bind.annotation.*;
 
 import com.saree.dto.DashboardStatsDto;
 import com.saree.dto.EnquiryStatusUpdateDto;
-import com.saree.dto.LoginRequestDto;
+import com.saree.dto.ProductRequestDto;
 import com.saree.model.Enquiry;
 import com.saree.model.Product;
+import com.saree.model.ProductVariant;
 import com.saree.security.AdminAuthService;
 import com.saree.security.JwtTokenProvider;
 import com.saree.service.DashboardService;
@@ -44,7 +46,7 @@ public class AdminController {
 
     // --- Admin Authentication ---
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDto loginDto) {
+    public ResponseEntity<?> login(@Valid @RequestBody com.saree.dto.LoginRequestDto loginDto) {
         boolean authenticated = adminAuthService.authenticate(loginDto.getUsername(), loginDto.getPassword());
         if (authenticated) {
             String token = jwtTokenProvider.generateToken(loginDto.getUsername(), "ROLE_ADMIN");
@@ -82,7 +84,8 @@ public class AdminController {
     }
 
     @PostMapping("/products")
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<Product> createProduct(@Valid @RequestBody ProductRequestDto dto) {
+        Product product = mapDtoToProduct(dto);
         if (product.getActive() == null) {
             product.setActive(true);
         }
@@ -91,7 +94,9 @@ public class AdminController {
     }
 
     @PutMapping("/products/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable String id, @RequestBody Product product) {
+    public ResponseEntity<Product> updateProduct(@PathVariable String id,
+                                                 @Valid @RequestBody ProductRequestDto dto) {
+        Product product = mapDtoToProduct(dto);
         Product updated = productService.updateProduct(id, product);
         return ResponseEntity.ok(updated);
     }
@@ -167,5 +172,32 @@ public class AdminController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(updated);
+    }
+
+    // --- DTO to Entity Mapping ---
+    private Product mapDtoToProduct(ProductRequestDto dto) {
+        Product product = new Product();
+        product.setSku(dto.getSku());
+        product.setName(dto.getName());
+        product.setCategory(dto.getCategory());
+        product.setFabric(dto.getFabric());
+        product.setColor(dto.getColor());
+        product.setPrice(dto.getPrice());
+        product.setPriceTier(dto.getPriceTier());
+        product.setMinOrder(dto.getMinOrder());
+        product.setDescription(dto.getDescription());
+        product.setSareeLength(dto.getSareeLength());
+        product.setBlouseIncluded(dto.getBlouseIncluded());
+        product.setCareInstructions(dto.getCareInstructions());
+        product.setBadge(dto.getBadge());
+        product.setImageUrl(dto.getImageUrl());
+        product.setActive(dto.getActive());
+        product.setFeatured(dto.getFeatured());
+        if (dto.getVariants() != null) {
+            product.setVariants(dto.getVariants().stream()
+                    .map(v -> new ProductVariant(v.getName(), v.getHex()))
+                    .collect(Collectors.toList()));
+        }
+        return product;
     }
 }

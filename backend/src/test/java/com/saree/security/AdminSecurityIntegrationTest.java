@@ -309,6 +309,93 @@ class AdminSecurityIntegrationTest {
     }
 
     @Test
+    void createProduct_withInvalidDto_returns400() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // Missing sku, blank name, negative price
+        String invalidJson = """
+            {
+                "sku": "",
+                "name": "",
+                "category": "",
+                "fabric": "",
+                "color": "",
+                "price": -100.0
+            }
+            """;
+
+        mockMvc.perform(post("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details.sku").isNotEmpty())
+                .andExpect(jsonPath("$.details.name").isNotEmpty())
+                .andExpect(jsonPath("$.details.price").isNotEmpty());
+    }
+
+    @Test
+    void createProduct_withDuplicateSku_returns409() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        String productJson = """
+            {
+                "sku": "TEST-DUP-SKU-99",
+                "name": "Original Saree",
+                "category": "Banarasi Weave",
+                "fabric": "Silk",
+                "color": "Red",
+                "price": 2500.0
+            }
+            """;
+
+        // Create first product
+        String res = mockMvc.perform(post("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(productJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        String id = mapper.readTree(res).get("id").asText();
+
+        try {
+            // Attempt to create second product with same SKU
+            mockMvc.perform(post("/api/admin/products")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(productJson))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value(containsString("already exists")));
+        } finally {
+            // Cleanup
+            mockMvc.perform(delete("/api/admin/products/" + id)
+                            .header("Authorization", "Bearer " + adminToken));
+        }
+    }
+
+    @Test
+    void adminProducts_withPriceLowAndPriceHighSort_returns200() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // Verify price-low
+        mockMvc.perform(get("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("sortBy", "price-low"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+
+        // Verify price-high
+        mockMvc.perform(get("/api/admin/products")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("sortBy", "price-high"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
     void protectedEndpoints_tokenWithoutAdminRole_returns403() throws Exception {
         String nonAdminToken = jwtTokenProvider.generateToken("regular_buyer", "ROLE_USER");
 
@@ -402,6 +489,8 @@ class AdminSecurityIntegrationTest {
                 "sku": "TOGGLE-FEAT-01",
                 "name": "Featured Toggle Test Saree",
                 "category": "Silk Sarees",
+                "fabric": "Silk",
+                "color": "Royal Crimson",
                 "price": 3000.0,
                 "active": true,
                 "featured": false
@@ -448,6 +537,8 @@ class AdminSecurityIntegrationTest {
                 "sku": "TOGGLE-ACT-01",
                 "name": "Active Toggle Test Saree",
                 "category": "Silk Sarees",
+                "fabric": "Silk",
+                "color": "Royal Crimson",
                 "price": 2500.0,
                 "active": true
             }
