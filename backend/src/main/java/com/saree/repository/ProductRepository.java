@@ -1,6 +1,7 @@
 package com.saree.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 
@@ -12,4 +13,5 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     long countByActiveTrue();
     long countByActiveFalse();
     boolean existsBySku(String sku);
+    Optional<Product> findBySku(String sku);
 }

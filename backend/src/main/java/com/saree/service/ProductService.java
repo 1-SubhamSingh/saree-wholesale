@@ -7,6 +7,8 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import com.saree.dto.ProductFilterOptions;
+import com.saree.exception.DuplicateSkuException;
+import com.saree.exception.ProductNotFoundException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -159,8 +161,8 @@ public class ProductService {
 
         String sortKey = sortBy.trim().toLowerCase();
         return switch (sortKey) {
-            case "price_asc", "price,asc" -> Sort.by(Sort.Direction.ASC, "price");
-            case "price_desc", "price,desc" -> Sort.by(Sort.Direction.DESC, "price");
+            case "price_asc", "price,asc", "price-low" -> Sort.by(Sort.Direction.ASC, "price");
+            case "price_desc", "price,desc", "price-high" -> Sort.by(Sort.Direction.DESC, "price");
             case "name_asc", "name,asc" -> Sort.by(Sort.Direction.ASC, "name");
             case "name_desc", "name,desc" -> Sort.by(Sort.Direction.DESC, "name");
             default -> Sort.by(
@@ -259,8 +261,8 @@ public class ProductService {
         String sortKey = sortBy.trim().toLowerCase();
         return switch (sortKey) {
             case "oldest" -> Sort.by(Sort.Direction.ASC, "createdAt", "id");
-            case "price_asc", "price,asc" -> Sort.by(Sort.Direction.ASC, "price");
-            case "price_desc", "price,desc" -> Sort.by(Sort.Direction.DESC, "price");
+            case "price_asc", "price,asc", "price-low" -> Sort.by(Sort.Direction.ASC, "price");
+            case "price_desc", "price,desc", "price-high" -> Sort.by(Sort.Direction.DESC, "price");
             case "name_asc", "name,asc" -> Sort.by(Sort.Direction.ASC, "name");
             case "name_desc", "name,desc" -> Sort.by(Sort.Direction.DESC, "name");
             case "featured" -> Sort.by(
@@ -323,10 +325,27 @@ public class ProductService {
     }
 
     public Product getProductById(String id) {
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            throw new ProductNotFoundException(id);
+        }
+        if (product.getActive() != null && !product.getActive()) {
+            throw new ProductNotFoundException(id);
+        }
+        return product;
+    }
+
+    /**
+     * Admin variant: returns the product regardless of active status.
+     */
+    public Product getProductByIdForAdmin(String id) {
         return productRepository.findById(id).orElse(null);
     }
 
     public Product createProduct(Product product) {
+        if (product.getSku() != null && productRepository.existsBySku(product.getSku())) {
+            throw new DuplicateSkuException(product.getSku());
+        }
         if (product.getActive() == null) {
             product.setActive(true);
         }
@@ -343,6 +362,12 @@ public class ProductService {
 
     public Product updateProduct(String id, Product product) {
         Product existing = productRepository.findById(id).orElse(null);
+        // Check SKU uniqueness if SKU is being changed
+        if (product.getSku() != null && existing != null
+                && !product.getSku().equals(existing.getSku())
+                && productRepository.existsBySku(product.getSku())) {
+            throw new DuplicateSkuException(product.getSku());
+        }
         product.setId(id);
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         if (existing != null) {

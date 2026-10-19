@@ -30,6 +30,8 @@ class ProductPaginationIntegrationTest {
     private ProductRepository productRepository;
 
     private final List<String> createdProductIds = new ArrayList<>();
+    private String inactiveProductId;
+    private String activeProductId;
 
     @BeforeEach
     void setUp() {
@@ -46,6 +48,9 @@ class ProductPaginationIntegrationTest {
             p.setActive(true);
             Product saved = productRepository.save(p);
             createdProductIds.add(saved.getId());
+            if (i == 1) {
+                activeProductId = saved.getId();
+            }
         }
 
         // Add one inactive product to verify public filter excludes it
@@ -56,6 +61,7 @@ class ProductPaginationIntegrationTest {
         inactive.setActive(false);
         Product savedInactive = productRepository.save(inactive);
         createdProductIds.add(savedInactive.getId());
+        inactiveProductId = savedInactive.getId();
     }
 
     @AfterEach
@@ -241,5 +247,21 @@ class ProductPaginationIntegrationTest {
                 .andExpect(jsonPath("$.fabrics", hasItem("Pure Mulberry Silk")))
                 .andExpect(jsonPath("$.colors", hasItem("Mustard Gold")))
                 .andExpect(jsonPath("$.colors", hasItem("Crimson Red")));
+    }
+
+    @Test
+    @DisplayName("Public get product by ID returns 404 for inactive product")
+    void testGetProductByIdReturns404ForInactiveProduct() throws Exception {
+        mockMvc.perform(get("/api/products/" + inactiveProductId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Public get product by ID returns 200 for active product")
+    void testGetProductByIdReturns200ForActiveProduct() throws Exception {
+        mockMvc.perform(get("/api/products/" + activeProductId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(activeProductId))
+                .andExpect(jsonPath("$.active").value(true));
     }
 }

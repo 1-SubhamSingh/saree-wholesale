@@ -3,12 +3,16 @@ package com.saree.controller;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.saree.exception.DuplicateSkuException;
+import com.saree.exception.ProductNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -26,6 +30,25 @@ public class GlobalExceptionHandler {
         response.put("error", "Validation Failed");
         response.put("details", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleProductNotFound(ProductNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateSkuException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateSku(DuplicateSkuException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateKey(DuplicateKeyException ex) {
+        String message = "Duplicate value detected";
+        if (ex.getMessage() != null && ex.getMessage().contains("sku")) {
+            message = "A product with this SKU already exists";
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", message));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
