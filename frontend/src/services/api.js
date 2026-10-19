@@ -75,6 +75,8 @@ export const adminUpdateEnquiryStatus = (id, status, adminNotes) =>
   api.put(`/admin/enquiries/${id}/status`, { status, adminNotes });
 export const adminUpdateEnquiryNotes = (id, adminNotes) =>
   api.put(`/admin/enquiries/${id}/notes`, { adminNotes });
+export const adminUpdateEnquiryFollowUp = (id, followUpData) =>
+  api.put(`/admin/enquiries/${id}/follow-up`, followUpData);
 
 // Admin Dashboard Stats API
 export const adminGetDashboardStats = () => api.get('/admin/stats');

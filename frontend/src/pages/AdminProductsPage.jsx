@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import SEO from '../components/common/SEO';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import CameraCaptureModal from '../components/common/CameraCaptureModal';
@@ -13,6 +13,7 @@ import {
   adminGetEnquiries,
   adminUpdateEnquiryStatus,
   adminUpdateEnquiryNotes,
+  adminUpdateEnquiryFollowUp,
 } from '../services/api';
 import { uploadProductImage, validateImageFile } from '../services/imageUpload';
 
@@ -59,8 +60,10 @@ const EMPTY_PRODUCT_FORM = {
 
 export default function AdminProductsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'enquiries'
+  const initialTab = searchParams.get('tab') === 'enquiries' ? 'enquiries' : 'products';
+  const [activeTab, setActiveTab] = useState(initialTab); // 'products' | 'enquiries'
 
   // ================= PRODUCTS STATE =================
   const [products, setProducts] = useState([]);
@@ -95,6 +98,13 @@ export default function AdminProductsPage() {
   const [adminNoteText, setAdminNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [noteStatusMsg, setNoteStatusMsg] = useState(null);
+
+  // Follow-up CRM state
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
+  const [preferredContactMethod, setPreferredContactMethod] = useState('');
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
+  const [followUpStatusMsg, setFollowUpStatusMsg] = useState(null);
 
   // Modal State for Product CRUD
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -211,29 +221,45 @@ export default function AdminProductsPage() {
     }
   }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, navigate]);
 
-  // Check auth & initial fetch
+  // Auth check & data fetching for products tab
   useEffect(() => {
     const token = localStorage.getItem('saree_admin_token');
     if (!token) {
       navigate('/admin/login');
       return;
     }
-    fetchProducts();
-  }, [navigate, fetchProducts]);
+    if (activeTab === 'products') {
+      fetchProducts();
+    }
+  }, [activeTab, fetchProducts, navigate]);
+
+  // Auth check & data fetching for enquiries tab (runs on tab switch, search, filter, sort, pagination)
+  useEffect(() => {
+    const token = localStorage.getItem('saree_admin_token');
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
+    if (activeTab === 'enquiries') {
+      fetchEnquiries();
+    }
+  }, [activeTab, fetchEnquiries, navigate]);
 
   // Tab switch
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'enquiries') {
-      fetchEnquiries();
-    }
+    setSearchParams(tab === 'enquiries' ? { tab: 'enquiries' } : {});
   };
 
   // Product search submission
   const handleProductSearchSubmit = (e) => {
     e.preventDefault();
     setProductPage(0);
-    setProductSearch(productSearchInput);
+    if (productSearch === productSearchInput) {
+      fetchProducts();
+    } else {
+      setProductSearch(productSearchInput);
+    }
   };
 
   const handleProductResetFilters = () => {
@@ -249,7 +275,11 @@ export default function AdminProductsPage() {
   const handleEnquirySearchSubmit = (e) => {
     e.preventDefault();
     setEnquiryPage(0);
-    setEnquirySearch(enquirySearchInput);
+    if (enquirySearch === enquirySearchInput) {
+      fetchEnquiries();
+    } else {
+      setEnquirySearch(enquirySearchInput);
+    }
   };
 
   const handleEnquiryResetFilters = () => {
@@ -421,7 +451,36 @@ export default function AdminProductsPage() {
     setSelectedEnquiry(enq);
     setAdminNoteText(enq.adminNotes || '');
     setNoteStatusMsg(null);
+    setFollowUpDate(enq.followUpDate || '');
+    setAssignedTo(enq.assignedTo || '');
+    setPreferredContactMethod(enq.preferredContactMethod || '');
+    setFollowUpStatusMsg(null);
     setIsDetailModalOpen(true);
+  };
+
+  // Save Follow-up CRM fields
+  const handleSaveFollowUp = async () => {
+    if (!selectedEnquiry) return;
+    try {
+      setSavingFollowUp(true);
+      setFollowUpStatusMsg(null);
+      const res = await adminUpdateEnquiryFollowUp(selectedEnquiry.id, {
+        followUpDate: followUpDate || null,
+        assignedTo: assignedTo || null,
+        preferredContactMethod: preferredContactMethod || null,
+      });
+      setSelectedEnquiry(res.data);
+      setEnquiries((prev) =>
+        prev.map((enq) => (enq.id === selectedEnquiry.id ? res.data : enq))
+      );
+      setFollowUpStatusMsg({ type: 'success', text: 'Follow-up details saved!' });
+      setTimeout(() => setFollowUpStatusMsg(null), 3500);
+    } catch (err) {
+      console.error('Failed to save follow-up:', err);
+      setFollowUpStatusMsg({ type: 'error', text: 'Failed to save. Please retry.' });
+    } finally {
+      setSavingFollowUp(false);
+    }
   };
 
   // Save Admin Internal Notes
@@ -1180,6 +1239,83 @@ export default function AdminProductsPage() {
                 <span className="text-[11px] text-[#55504E]">
                   Updates immediately across the dashboard.
                 </span>
+              </div>
+            </div>
+
+            {/* Follow-up CRM Management */}
+            <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50/60 p-3.5">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm">📅</span>
+                <label className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Follow-up & Lead Assignment
+                </label>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                    Follow-up Date
+                  </label>
+                  <input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                    Assigned To
+                  </label>
+                  <input
+                    type="text"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    placeholder="e.g. Ravi, Sales Team"
+                    className="mt-1 w-full rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-blue-800">
+                    Preferred Contact
+                  </label>
+                  <select
+                    value={preferredContactMethod}
+                    onChange={(e) => setPreferredContactMethod(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">— Not specified —</option>
+                    <option value="WHATSAPP">WhatsApp</option>
+                    <option value="PHONE">Phone Call</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="IN_PERSON">In-Person Visit</option>
+                  </select>
+                </div>
+              </div>
+              {selectedEnquiry.lastContactedAt && (
+                <p className="mt-2 text-[10px] text-blue-700">
+                  Last Contacted: {new Date(selectedEnquiry.lastContactedAt).toLocaleString('en-IN')}
+                </p>
+              )}
+              <div className="mt-3 flex items-center justify-between">
+                <div>
+                  {followUpStatusMsg && (
+                    <span
+                      className={`text-xs font-semibold ${
+                        followUpStatusMsg.type === 'success' ? 'text-emerald-700' : 'text-red-700'
+                      }`}
+                    >
+                      {followUpStatusMsg.text}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={savingFollowUp}
+                  onClick={handleSaveFollowUp}
+                  className="rounded-lg bg-blue-700 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-900 disabled:opacity-50"
+                >
+                  {savingFollowUp ? 'Saving...' : 'Save Follow-up'}
+                </button>
               </div>
             </div>
 

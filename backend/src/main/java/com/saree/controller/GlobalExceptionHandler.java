@@ -42,6 +42,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
     }
 
+    @ExceptionHandler(com.saree.exception.RateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimit(com.saree.exception.RateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.saree.exception.SpamValidationException.class)
+    public ResponseEntity<Map<String, String>> handleSpam(com.saree.exception.SpamValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+    }
+
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<Map<String, String>> handleDuplicateKey(DuplicateKeyException ex) {
         String message = "Duplicate value detected";
