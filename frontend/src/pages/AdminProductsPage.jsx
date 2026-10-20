@@ -248,6 +248,20 @@ export default function AdminProductsPage() {
     }
   }, [activeTab, fetchEnquiries]);
 
+  // Pre-fetch the inactive tab on mount so both badges ('Products' and 'Enquiries')
+  // show accurate counts immediately on initial load without waiting for tab click.
+  const initialInactiveTabFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!initialInactiveTabFetchedRef.current) {
+      initialInactiveTabFetchedRef.current = true;
+      if (activeTab === 'products') {
+        fetchEnquiries();
+      } else {
+        fetchProducts();
+      }
+    }
+  }, [activeTab, fetchEnquiries, fetchProducts]);
+
   // Tab switch
   const handleTabChange = (tab) => {
     setActiveTab(tab);
