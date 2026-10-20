@@ -30,8 +30,6 @@ jobs:
         image: mongo:6.0
         ports:
           - 27017:27017
-        # Start mongod with replica set mode enabled.
-        # The health check uses the plain ping first; rs.initiate() happens in a step below.
         options: >-
           --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
@@ -41,7 +39,7 @@ jobs:
     env:
       # CI-only test credentials – never use production secrets here.
       # Override these via GitHub repository secrets for real environments.
-      MONGODB_URI: mongodb://localhost:27017/saree_wholesale_ci?replicaSet=rs0
+      MONGODB_URI: mongodb://localhost:27017/saree_wholesale_ci
       ADMIN_USERNAME: ${{ secrets.CI_ADMIN_USERNAME || 'admin1' }}
       ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'admin123' }}
       JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'saree-wholesale-secure-jwt-signing-secret-key-2026-min256bit!' }}
@@ -50,36 +48,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Restart MongoDB with replica-set flag
-        # The service container starts a plain mongod. We stop it, then start a
-        # fresh mongod process with --replSet rs0 on the same port.
-        run: |
-          docker ps --filter "ancestor=mongo:6.0" -q | xargs -r docker stop
-          docker run --rm -d \
-            --network host \
-            --name mongo-rs \
-            mongo:6.0 mongod --replSet rs0 --bind_ip_all --port 27017
-          # Wait until mongod accepts connections.
-          for i in $(seq 1 20); do
-            mongosh --port 27017 --eval "db.adminCommand('ping')" > /dev/null 2>&1 && break
-            sleep 2
-          done
-
-      - name: Initialise replica set
-        run: |
-          mongosh --port 27017 --eval "
-            try { rs.status() } catch(e) {
-              rs.initiate({_id:'rs0', members:[{_id:0, host:'127.0.0.1:27017'}]});
-            }
-          "
-          # Wait until this node is PRIMARY.
-          for i in $(seq 1 20); do
-            STATE=$(mongosh --port 27017 --quiet --eval "rs.status().myState")
-            [ "$STATE" = "1" ] && echo "PRIMARY elected" && break
-            echo "Waiting for PRIMARY (state=$STATE)..."
-            sleep 2
-          done
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -90,7 +58,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       # Single Maven invocation: compile + test + package in one lifecycle.
-      # Tests run against the CI MongoDB replica set started above.
+      # Tests run against the CI MongoDB service container above.
       - name: Build, test, and package
         run: mvn clean package
 

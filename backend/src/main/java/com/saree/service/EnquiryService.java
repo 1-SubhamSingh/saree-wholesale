@@ -200,7 +200,6 @@ public class EnquiryService {
         return enquiryRepository.findById(id).orElse(null);
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Enquiry updateEnquiryFollowUp(String id, EnquiryFollowUpDto dto) {
         Enquiry enquiry = enquiryRepository.findById(id).orElse(null);
         if (enquiry == null) {
@@ -236,7 +235,6 @@ public class EnquiryService {
         return saved;
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Enquiry updateEnquiryStatus(String id, EnquiryStatusUpdateDto dto) {
         Enquiry enquiry = enquiryRepository.findById(id).orElse(null);
         if (enquiry == null) {
@@ -271,7 +269,6 @@ public class EnquiryService {
         return saved;
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Enquiry updateEnquiryStatus(String id, EnquiryStatus newStatus, String adminNotes) {
         Enquiry enquiry = enquiryRepository.findById(id).orElse(null);
         if (enquiry == null) {
@@ -294,12 +291,10 @@ public class EnquiryService {
         return saved;
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Enquiry updateEnquiryStatus(String id, EnquiryStatus newStatus) {
         return updateEnquiryStatus(id, newStatus, null);
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public Enquiry updateEnquiryNotes(String id, String adminNotes) {
         Enquiry enquiry = enquiryRepository.findById(id).orElse(null);
         if (enquiry == null) {
@@ -329,7 +324,11 @@ public class EnquiryService {
         if (auditLogService == null) {
             return;
         }
-        auditAction.run();
+        try {
+            auditAction.run();
+        } catch (Exception exception) {
+            logger.error("Enquiry mutation succeeded but its audit record could not be saved", exception);
+        }
     }
 
     public List<Enquiry> getEnquiriesByStatus(EnquiryStatus status) {
