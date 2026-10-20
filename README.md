@@ -101,3 +101,25 @@ saree-wholesale/
 - **Enquiry System**: Customer enquiries and admin management
 - **Image Uploads**: Uploaded product images are saved in persistent storage (`/app/uploads` volume in Docker) and served via `/api/uploads/**`
 - **React Router SPA**: Handled by Nginx `try_files` fallback
+
+---
+
+## Continuous Integration (CI)
+
+This repository includes a multi-job GitHub Actions CI workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers on every push and pull request to `main`:
+
+1. **Backend Tests & Build**:
+   - Spawns a dedicated MongoDB 6 service container with health checks.
+   - Sets up Java 21 (Eclipse Temurin) with Maven dependency caching.
+   - Executes all 86 unit and Spring Boot integration tests (`mvn clean test`).
+   - Packages production JAR artifact (`mvn package -DskipTests`).
+
+2. **Frontend Lint, Tests & Build**:
+   - Sets up Node.js 22 with npm cache.
+   - Checks code quality with Oxlint (`npm run lint`).
+   - Runs frontend tests with Node test runner (`npm test`).
+   - Verifies production bundle creation (`npm run build`).
+
+3. **Docker Compose Build Verification**:
+   - Validates `docker-compose.yml` config.
+   - Builds both multi-stage Docker images (`docker compose build`) to guarantee zero container regressions.
