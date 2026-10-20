@@ -91,6 +91,8 @@ export default function AdminProductsPage() {
   const [enquirySortBy, setEnquirySortBy] = useState('newest');
   const [enquiryTotalPages, setEnquiryTotalPages] = useState(1);
   const [enquiryTotalElements, setEnquiryTotalElements] = useState(0);
+  // Bumped when the user re-submits identical search params so the useEffect fires anyway
+  const [enquiryFetchTrigger, setEnquiryFetchTrigger] = useState(0);
 
   // Enquiry detail modal state
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -175,7 +177,9 @@ export default function AdminProductsPage() {
     }
   }, [productPage, productSize, productSearch, productCategory, productActiveFilter, productSortBy, navigate]);
 
-  // Fetch Enquiries with server-side pagination & filtering
+  // Fetch Enquiries with server-side pagination & filtering.
+  // enquiryFetchTrigger is included so incrementing it re-fires the useEffect
+  // without changing any visible filter state (handles re-submit of identical search).
   const fetchEnquiries = useCallback(async () => {
     try {
       setLoadingEnquiries(true);
@@ -219,7 +223,8 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingEnquiries(false);
     }
-  }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, enquiryFetchTrigger, navigate]);
 
   // Auth check & initial data fetch
   useEffect(() => {
@@ -269,19 +274,24 @@ export default function AdminProductsPage() {
     setProductPage(0);
   };
 
-  // Enquiry search submission — always reset to page 0 and apply the new search term.
-  // If the search term hasn't changed (same value already committed), force a re-fetch directly.
+  // Enquiry search submission.
+  // All state mutations are batched by React 18, so the useEffect fires exactly once.
+  // When nothing would change (identical search + already on page 0), bump the trigger
+  // counter so the effect fires without stale-closure risk.
   const handleEnquirySearchSubmit = (e) => {
     e.preventDefault();
     const trimmed = enquirySearchInput.trim();
-    if (enquiryPage !== 0) {
-      setEnquiryPage(0); // useEffect will fire because enquiryPage changed → fetchEnquiries runs
-    }
-    if (enquirySearch === trimmed) {
-      // State won't change, so useEffect won't re-fire — call directly
-      fetchEnquiries();
+    const searchUnchanged = enquirySearch === trimmed;
+    const alreadyOnFirstPage = enquiryPage === 0;
+
+    if (searchUnchanged && alreadyOnFirstPage) {
+      // Nothing else would change → bump trigger to force one fetch
+      setEnquiryFetchTrigger((n) => n + 1);
     } else {
-      setEnquirySearch(trimmed); // triggers useEffect → fetchEnquiries
+      // At least one state value will change; React batches all into one render
+      // → useEffect fires exactly once with the correct final values.
+      if (!alreadyOnFirstPage) setEnquiryPage(0);
+      if (!searchUnchanged) setEnquirySearch(trimmed);
     }
   };
 
@@ -903,12 +913,14 @@ export default function AdminProductsPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          // Always clear the visible input.
+                          // Then drive fetching purely through state (no direct fetchEnquiries call).
                           setEnquirySearchInput('');
-                          // If search was already empty, force a re-fetch; otherwise state change triggers useEffect
-                          if (enquirySearch === '') {
-                            setEnquiryPage(0);
-                            fetchEnquiries();
+                          if (enquirySearch === '' && enquiryPage === 0) {
+                            // Nothing would change → bump trigger to force exactly one fetch
+                            setEnquiryFetchTrigger((n) => n + 1);
                           } else {
+                            // React 18 batches both setters → useEffect fires once
                             setEnquirySearch('');
                             setEnquiryPage(0);
                           }

@@ -106,20 +106,22 @@ saree-wholesale/
 
 ## Continuous Integration (CI)
 
-This repository includes a multi-job GitHub Actions CI workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers on every push and pull request to `main`:
+This repository includes a multi-job GitHub Actions CI workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers on every push and pull request to `main`.
 
-1. **Backend Tests & Build**:
-   - Spawns a dedicated MongoDB 6 service container with health checks.
-   - Sets up Java 21 (Eclipse Temurin) with Maven dependency caching.
-   - Executes all 86 unit and Spring Boot integration tests (`mvn clean test`).
-   - Packages production JAR artifact (`mvn package -DskipTests`).
+Each job has a `timeout-minutes` guard to prevent runaway builds.
 
-2. **Frontend Lint, Tests & Build**:
-   - Sets up Node.js 22 with npm cache.
-   - Checks code quality with Oxlint (`npm run lint`).
-   - Runs frontend tests with Node test runner (`npm test`).
-   - Verifies production bundle creation (`npm run build`).
+### 1. Backend Tests & Build (`timeout: 20 min`)
+- Spawns a dedicated **MongoDB 6** service container with health checks.
+- Sets up **Java 21** (Eclipse Temurin) with Maven dependency caching (`actions/setup-java@v4`).
+- Runs a **single Maven invocation** — `mvn clean package` — which compiles, runs all unit and Spring Boot integration tests, then packages the production JAR.
+- CI credentials (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `JWT_SECRET`) are read from GitHub repository secrets (`CI_ADMIN_USERNAME`, `CI_ADMIN_PASSWORD`, `CI_JWT_SECRET`). Safe CI-only fallback values are used when those secrets are not set. **Production credentials are never hardcoded.**
 
-3. **Docker Compose Build Verification**:
-   - Validates `docker-compose.yml` config.
-   - Builds both multi-stage Docker images (`docker compose build`) to guarantee zero container regressions.
+### 2. Frontend Lint, Tests & Build (`timeout: 15 min`)
+- Sets up **Node.js 24** with npm cache (`actions/setup-node@v4`).
+- Checks code quality with **Oxlint** (`npm run lint`).
+- Runs frontend tests via `npm test` (which runs `node --test test/**/*.test.js` as defined in `package.json`). Currently covers `test/cataloguePagination.test.js`.
+- Verifies production bundle builds cleanly (`npm run build`).
+
+### 3. Docker Compose Build Verification (`timeout: 20 min`, runs after jobs 1 & 2)
+- Validates `docker-compose.yml` syntax and config (`docker compose config`).
+- Builds both multi-stage Docker images (`docker compose build`) to catch container regressions early.
