@@ -221,29 +221,27 @@ export default function AdminProductsPage() {
     }
   }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, navigate]);
 
-  // Auth check & data fetching for products tab
+  // Auth check & initial data fetch
   useEffect(() => {
     const token = localStorage.getItem('saree_admin_token');
     if (!token) {
       navigate('/admin/login');
-      return;
     }
+  }, [navigate]);
+
+  // Fetch products whenever tab is active or any product filter changes
+  useEffect(() => {
     if (activeTab === 'products') {
       fetchProducts();
     }
-  }, [activeTab, fetchProducts, navigate]);
+  }, [activeTab, fetchProducts]);
 
-  // Auth check & data fetching for enquiries tab (runs on tab switch, search, filter, sort, pagination)
+  // Fetch enquiries whenever tab is active or any enquiry filter/search/pagination changes
   useEffect(() => {
-    const token = localStorage.getItem('saree_admin_token');
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
     if (activeTab === 'enquiries') {
       fetchEnquiries();
     }
-  }, [activeTab, fetchEnquiries, navigate]);
+  }, [activeTab, fetchEnquiries]);
 
   // Tab switch
   const handleTabChange = (tab) => {
@@ -271,14 +269,19 @@ export default function AdminProductsPage() {
     setProductPage(0);
   };
 
-  // Enquiry search submission
+  // Enquiry search submission — always reset to page 0 and apply the new search term.
+  // If the search term hasn't changed (same value already committed), force a re-fetch directly.
   const handleEnquirySearchSubmit = (e) => {
     e.preventDefault();
-    setEnquiryPage(0);
-    if (enquirySearch === enquirySearchInput) {
+    const trimmed = enquirySearchInput.trim();
+    if (enquiryPage !== 0) {
+      setEnquiryPage(0); // useEffect will fire because enquiryPage changed → fetchEnquiries runs
+    }
+    if (enquirySearch === trimmed) {
+      // State won't change, so useEffect won't re-fire — call directly
       fetchEnquiries();
     } else {
-      setEnquirySearch(enquirySearchInput);
+      setEnquirySearch(trimmed); // triggers useEffect → fetchEnquiries
     }
   };
 
@@ -901,8 +904,14 @@ export default function AdminProductsPage() {
                         type="button"
                         onClick={() => {
                           setEnquirySearchInput('');
-                          setEnquirySearch('');
-                          setEnquiryPage(0);
+                          // If search was already empty, force a re-fetch; otherwise state change triggers useEffect
+                          if (enquirySearch === '') {
+                            setEnquiryPage(0);
+                            fetchEnquiries();
+                          } else {
+                            setEnquirySearch('');
+                            setEnquiryPage(0);
+                          }
                         }}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-700"
                       >
