@@ -1,6 +1,8 @@
 package com.saree.repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -14,6 +16,15 @@ public interface EnquiryRepository extends MongoRepository<Enquiry, String> {
     long countByStatus(EnquiryStatus status);
     List<Enquiry> findByFollowUpDate(LocalDate date);
     List<Enquiry> findByFollowUpDateBeforeAndStatusNot(LocalDate date, EnquiryStatus status);
-    long countByFollowUpDate(LocalDate date);
+    long countByFollowUpDateAndStatusNot(LocalDate date, EnquiryStatus status);
     long countByFollowUpDateBeforeAndStatusNot(LocalDate date, EnquiryStatus status);
+
+    // Optimized dashboard query methods
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+    long countByFollowUpDateLessThanEqualAndStatusNot(LocalDate date, EnquiryStatus status);
+    List<Enquiry> findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(LocalDate date, EnquiryStatus status);
+    List<Enquiry> findTop10ByFollowUpDateBeforeAndStatusNotOrderByFollowUpDateAsc(LocalDate date, EnquiryStatus status);
+    List<Enquiry> findTop10ByStatusOrderByCreatedAtDesc(EnquiryStatus status);
+    List<Enquiry> findTop10ByStatusInOrderByUpdatedAtDesc(Collection<EnquiryStatus> statuses);
+    List<Enquiry> findTop10ByOrderByCreatedAtDesc();
 }

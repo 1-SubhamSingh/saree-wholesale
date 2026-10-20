@@ -39,6 +39,70 @@ export function buildCatalogueQueryParams({
   return params;
 }
 
+export function parseCatalogueUrlParams(urlOrQueryString) {
+  let search = urlOrQueryString;
+  if (typeof urlOrQueryString === 'string' && urlOrQueryString.includes('?')) {
+    search = urlOrQueryString.split('?')[1];
+  }
+  const params = new URLSearchParams(search);
+
+  const category = params.get('category')?.trim() || 'All Categories';
+  const fabric = params.get('fabric')?.trim() || 'All Fabrics';
+  const color = params.get('color')?.trim() || 'All Colors';
+  const priceRange = params.get('priceRange')?.trim() || 'all';
+  const sortBy = params.get('sortBy')?.trim() || 'featured';
+  const searchTerm = params.get('search')?.trim() || '';
+  const rawPage = parseInt(params.get('page') || '1', 10);
+  const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+
+  return {
+    category,
+    fabric,
+    color,
+    priceRange,
+    sortBy,
+    searchTerm,
+    page,
+  };
+}
+
+export function formatCatalogueUrlParams({
+  category = 'All Categories',
+  fabric = 'All Fabrics',
+  color = 'All Colors',
+  priceRange = 'all',
+  sortBy = 'featured',
+  searchTerm = '',
+  page = 1,
+}) {
+  const params = new URLSearchParams();
+
+  if (category && category !== 'All Categories') {
+    params.set('category', category);
+  }
+  if (fabric && fabric !== 'All Fabrics') {
+    params.set('fabric', fabric);
+  }
+  if (color && color !== 'All Colors') {
+    params.set('color', color);
+  }
+  if (priceRange && priceRange !== 'all') {
+    params.set('priceRange', priceRange);
+  }
+  if (sortBy && sortBy !== 'featured') {
+    params.set('sortBy', sortBy);
+  }
+  if (searchTerm && searchTerm.trim()) {
+    params.set('search', searchTerm.trim());
+  }
+  if (page && page > 1) {
+    params.set('page', String(page));
+  }
+
+  const qs = params.toString();
+  return qs ? `/catalogue?${qs}` : '/catalogue';
+}
+
 export function parsePaginationResponse(data, fallbackPage = 1, pageSize = 12) {
   if (data && Array.isArray(data.content)) {
     const activeOnly = data.content.filter((p) => p.active !== false);
@@ -292,6 +356,95 @@ describe('Frontend Catalogue Pagination', () => {
       const nameParams = buildCatalogueQueryParams({ page: 3, sortBy: 'name_asc' });
       assert.equal(nameParams.page, 2);
       assert.equal(nameParams.sortBy, 'name_asc');
+    });
+  });
+
+  describe('Shareable Catalogue URLs', () => {
+    it('keeps page greater than one for the initial catalogue request', () => {
+      const parsed = parseCatalogueUrlParams('/catalogue?search=silk&page=2');
+      const request = buildCatalogueQueryParams({ page: parsed.page, searchTerm: parsed.searchTerm });
+
+      assert.equal(parsed.page, 2);
+      assert.equal(request.page, 1);
+      assert.equal(request.search, 'silk');
+    });
+
+    it('restores page exactly when browser navigation changes the URL', () => {
+      const initial = parseCatalogueUrlParams('/catalogue?category=Silk%20Sarees&page=3');
+      const backNavigation = parseCatalogueUrlParams('/catalogue?category=Silk%20Sarees&page=2');
+
+      assert.equal(initial.page, 3);
+      assert.equal(backNavigation.page, 2);
+      assert.equal(buildCatalogueQueryParams({ page: backNavigation.page, selectedCategory: backNavigation.category }).page, 1);
+    });
+    it('restores all filters and page from a shareable URL', () => {
+      const url =
+        '/catalogue?category=Banarasi%20Weave&fabric=Katan%20Silk&color=Red&priceRange=2000_3500&sortBy=price_asc&page=2';
+      const parsed = parseCatalogueUrlParams(url);
+
+      assert.equal(parsed.category, 'Banarasi Weave');
+      assert.equal(parsed.fabric, 'Katan Silk');
+      assert.equal(parsed.color, 'Red');
+      assert.equal(parsed.priceRange, '2000_3500');
+      assert.equal(parsed.sortBy, 'price_asc');
+      assert.equal(parsed.page, 2);
+      assert.equal(parsed.searchTerm, '');
+
+      // Passes all restored values into buildCatalogueQueryParams
+      const apiParams = buildCatalogueQueryParams({
+        page: parsed.page,
+        selectedCategory: parsed.category,
+        selectedFabric: parsed.fabric,
+        selectedColor: parsed.color,
+        priceRange: parsed.priceRange,
+        sortBy: parsed.sortBy,
+      });
+
+      assert.equal(apiParams.page, 1); // 0-based page for page=2
+      assert.equal(apiParams.category, 'Banarasi Weave');
+      assert.equal(apiParams.fabric, 'Katan Silk');
+      assert.equal(apiParams.color, 'Red');
+      assert.equal(apiParams.priceRange, '2000_3500');
+      assert.equal(apiParams.sortBy, 'price_asc');
+    });
+
+    it('preserves search parameter in URL and restores it', () => {
+      const url = '/catalogue?search=pure%20katan&category=Silk%20Sarees&page=1';
+      const parsed = parseCatalogueUrlParams(url);
+
+      assert.equal(parsed.searchTerm, 'pure katan');
+      assert.equal(parsed.category, 'Silk Sarees');
+      assert.equal(parsed.page, 1);
+    });
+
+    it('falls back to default values for missing or invalid parameters', () => {
+      const url = '/catalogue?page=invalid&priceRange=all';
+      const parsed = parseCatalogueUrlParams(url);
+
+      assert.equal(parsed.category, 'All Categories');
+      assert.equal(parsed.fabric, 'All Fabrics');
+      assert.equal(parsed.color, 'All Colors');
+      assert.equal(parsed.priceRange, 'all');
+      assert.equal(parsed.sortBy, 'featured');
+      assert.equal(parsed.searchTerm, '');
+      assert.equal(parsed.page, 1);
+    });
+
+    it('round-trips state to URL and back identically', () => {
+      const originalState = {
+        category: 'Banarasi Weave',
+        fabric: 'Katan Silk Brocade',
+        color: 'Crimson Red',
+        priceRange: '2000_3500',
+        sortBy: 'price_asc',
+        searchTerm: 'wedding',
+        page: 3,
+      };
+
+      const url = formatCatalogueUrlParams(originalState);
+      const parsed = parseCatalogueUrlParams(url);
+
+      assert.deepEqual(parsed, originalState);
     });
   });
 });

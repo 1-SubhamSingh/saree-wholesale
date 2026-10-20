@@ -96,11 +96,117 @@ saree-wholesale/
 ---
 
 ## Features & Verification
+
+### Core Features
 - **JWT Admin Authentication**: Login at `/api/admin/login` or via Admin Portal `/admin/login`
-- **Product Management & Pagination**: CRUD operations, filtering by category/fabric/occasion, active/featured flags
-- **Enquiry System**: Customer enquiries and admin management
+- **Product Management & Pagination**: CRUD operations, filtering by category/fabric/color/price, active/featured flags
+- **Enquiry System**: Customer enquiries and admin management with follow-up tracking
 - **Image Uploads**: Uploaded product images are saved in persistent storage (`/app/uploads` volume in Docker) and served via `/api/uploads/**`
 - **React Router SPA**: Handled by Nginx `try_files` fallback
+
+---
+
+### New Features
+
+#### 1. Fully Shareable Catalogue URLs
+Every catalogue filter, sort order, search query and page number is persisted in the URL query string:
+
+```
+/catalogue?category=Banarasi%20Weave&fabric=Katan%20Silk&color=Red&priceRange=2000_3500&sortBy=price_asc&page=2
+```
+
+Supported query parameters:
+
+| Parameter    | Example values               | Description                          |
+|--------------|------------------------------|--------------------------------------|
+| `category`   | `Banarasi Weave`             | Filter by product category           |
+| `fabric`     | `Katan Silk`                 | Filter by fabric type                |
+| `color`      | `Red`                        | Filter by colour                     |
+| `priceRange` | `2000_3500`                  | Filter by price range (min_max)      |
+| `sortBy`     | `price_asc`, `price_desc`, `name_asc`, `newest` | Sort order |
+| `search`     | `banarasi silk`              | Free-text search                     |
+| `page`       | `2`                          | Current page (1-indexed in URL)      |
+
+- Page resets to 1 automatically on any filter/sort/search change.
+- Browser back/forward navigation restores the exact catalogue state.
+- Shared URLs reproduce the same filtered/sorted view for any user.
+
+#### 2. Optimised Admin Dashboard DB Queries
+The admin dashboard no longer loads all documents into memory. All statistics are computed on the MongoDB server side:
+
+- **`totalProducts`** — `db.products.countDocuments()`
+- **`activeProducts` / `inactiveProducts`** — `countDocuments({active: true/false})`
+- **`enquiriesByStatus`** — MongoDB `$group` aggregation
+- **`productsByCategory`** — MongoDB `$group` aggregation
+- **`todayEnquiries`** — `countDocuments` with `createdAt` range for today
+- **`pendingFollowUps`** — `countDocuments` on `followUpDate ≤ today AND status ≠ CLOSED`
+- **`recentEnquiries` / `recentProducts`** — top-10 by `createdAt`/`updatedAt` desc
+
+Zero `findAll()` calls remain in `DashboardService`.
+
+#### 3. MongoDB Indexes
+Explicit indexes are declared on the model layer (with `spring.data.mongodb.auto-index-creation=true`):
+
+**`Product` collection**
+
+| Field(s)                        | Type            |
+|---------------------------------|-----------------|
+| `sku`                           | Unique          |
+| `active`                        | Single          |
+| `featured`                      | Single          |
+| `category`                      | Single          |
+| `fabric`                        | Single          |
+| `color`                         | Single          |
+| `updatedAt`                     | Single          |
+| `(active, category)`            | Compound        |
+| `(active, fabric)`              | Compound        |
+| `(active, featured, updatedAt)` | Compound        |
+
+**`Enquiry` collection**
+
+| Field(s)                        | Type            |
+|---------------------------------|-----------------|
+| `status`                        | Single          |
+| `createdAt`                     | Single          |
+| `updatedAt`                     | Single          |
+| `phone`                         | Single          |
+| `followUpDate`                  | Single (sparse) |
+| `(status, createdAt)`           | Compound        |
+| `(status, followUpDate)`        | Compound        |
+
+#### 4. Admin Audit Log
+Every sensitive admin action is automatically recorded in the `admin_audit_logs` MongoDB collection.
+
+**Captured actions**
+
+| Action constant           | Trigger                                       |
+|---------------------------|-----------------------------------------------|
+| `PRODUCT_PRICE_CHANGED`   | Product price changed via update              |
+| `PRODUCT_DEACTIVATED`     | Product toggled inactive                      |
+| `PRODUCT_DELETED`         | Product deleted                               |
+| `ENQUIRY_STATUS_CHANGE`   | Enquiry status changed by admin               |
+| `ENQUIRY_NOTE_EDIT`       | Admin notes updated on an enquiry             |
+
+**REST API**
+
+```
+GET /api/admin/audit-logs
+```
+
+Requires: `Authorization: Bearer <admin-JWT>`
+
+Query parameters:
+
+| Parameter  | Description                              |
+|------------|------------------------------------------|
+| `page`     | Page number (0-based, default `0`)       |
+| `size`     | Page size (default `20`, max `100`)      |
+| `entityId` | Filter by the affected document ID       |
+| `entity`   | Filter by entity type (`PRODUCT`, `ENQUIRY`) |
+| `action`   | Filter by action constant                |
+| `admin`    | Filter by admin username                 |
+
+Response is a `PageResponse<AdminAuditLogDto>` containing `id`, `admin`, `action`, `entity`, `entityId`, `timestamp`, `oldValue`, `newValue`.
 
 ---
 
@@ -119,7 +225,7 @@ Each job has a `timeout-minutes` guard to prevent runaway builds.
 ### 2. Frontend Lint, Tests & Build (`timeout: 15 min`)
 - Sets up **Node.js 24** with npm cache (`actions/setup-node@v4`).
 - Checks code quality with **Oxlint** (`npm run lint`).
-- Runs frontend tests via `npm test` (which runs `node --test test/**/*.test.js` as defined in `package.json`). Currently covers `test/cataloguePagination.test.js`.
+- Runs frontend tests via `npm test` from the `frontend/` directory (invokes `node --test test/**/*.test.js` as defined in `package.json`). Currently covers `test/cataloguePagination.test.js` — **14 tests including shareable URL round-trip tests**.
 - Verifies production bundle builds cleanly (`npm run build`).
 
 ### 3. Docker Compose Build Verification (`timeout: 20 min`, runs after jobs 1 & 2)

@@ -673,8 +673,8 @@ class AdminSecurityIntegrationTest {
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode content = mapper.readTree(enquiriesResponse).get("content");
-        if (content.size() > 0) {
-            String enquiryId = content.get(0).get("id").asText();
+        org.junit.jupiter.api.Assertions.assertTrue(content.size() > 0, "The target enquiry must exist before audit assertions");
+        String enquiryId = content.get(0).get("id").asText();
 
             // Save admin notes
             mockMvc.perform(put("/api/admin/enquiries/" + enquiryId + "/notes")
@@ -683,7 +683,6 @@ class AdminSecurityIntegrationTest {
                             .content("{\"adminNotes\": \"Followed up via WhatsApp. Quoted ₹2200/pc for bulk.\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.adminNotes").value("Followed up via WhatsApp. Quoted ₹2200/pc for bulk."));
-        }
     }
 
     // --- 11. GlobalExceptionHandler: Generic 500 sanitisation ---
@@ -701,5 +700,83 @@ class AdminSecurityIntegrationTest {
                         .content("{\"status\": null}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Failed"));
+    }
+
+    // --- 12. Admin Audit Log Tests ---
+
+    @Test
+    void auditLogs_withoutAuth_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/admin/audit-logs"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void auditLogs_withAdminAuth_returnsPageResponse() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        mockMvc.perform(get("/api/admin/audit-logs")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("page", "1")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(10));
+    }
+
+    @Test
+    void auditLogs_recordsProductAndEnquiryActions() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("admin1", "ROLE_ADMIN");
+
+        // 1. Create an enquiry
+        String enquiryJson = """
+            {
+                "fullName": "Audit Log Test Buyer",
+                "businessName": "Audit Test Boutique",
+                "city": "Surat",
+                "phone": "9876543210",
+                "quantity": "50 Pieces",
+                "message": "Testing audit log recording"
+            }
+            """;
+        mockMvc.perform(post("/api/enquiries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(enquiryJson))
+                .andExpect(status().isCreated());
+
+        // 2. Fetch enquiry id
+        String enquiriesResponse = mockMvc.perform(get("/api/admin/enquiries")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("search", "Audit Test Boutique"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode content = mapper.readTree(enquiriesResponse).get("content");
+        org.junit.jupiter.api.Assertions.assertTrue(content.size() > 0, "The target enquiry must exist before audit assertions");
+        String enquiryId = content.get(0).get("id").asText();
+
+        // 3. Update status
+        mockMvc.perform(put("/api/admin/enquiries/" + enquiryId + "/status")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\": \"CONTACTED\"}"))
+                    .andExpect(status().isOk());
+
+        // 4. Update note
+        mockMvc.perform(put("/api/admin/enquiries/" + enquiryId + "/notes")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"adminNotes\": \"Called buyer and discussed pricing.\"}"))
+                    .andExpect(status().isOk());
+
+        // 5. Verify audit logs contain these actions
+        mockMvc.perform(get("/api/admin/audit-logs")
+                            .header("Authorization", "Bearer " + adminToken)
+                            .param("entityId", enquiryId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content", not(empty())))
+                    .andExpect(jsonPath("$.content[?(@.action == 'ENQUIRY_STATUS_CHANGE')]").exists())
+                    .andExpect(jsonPath("$.content[?(@.action == 'ENQUIRY_NOTE_EDIT')]").exists());
     }
 }

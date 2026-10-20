@@ -14,4 +14,8 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     long countByActiveFalse();
     boolean existsBySku(String sku);
     Optional<Product> findBySku(String sku);
+
+    // Optimized dashboard queries
+    List<Product> findTop10ByOrderByUpdatedAtDesc();
+    List<Product> findTop10ByOrderByCreatedAtDesc();
 }

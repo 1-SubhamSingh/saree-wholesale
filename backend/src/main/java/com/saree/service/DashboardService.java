@@ -1,11 +1,20 @@
 package com.saree.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.saree.dto.DashboardStatsDto;
 import com.saree.model.Enquiry;
@@ -16,28 +25,37 @@ import com.saree.repository.ProductRepository;
 
 @Service
 public class DashboardService {
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
 
     private final ProductRepository productRepository;
     private final EnquiryRepository enquiryRepository;
+    private final MongoTemplate mongoTemplate;
 
-    public DashboardService(ProductRepository productRepository, EnquiryRepository enquiryRepository) {
+    @Autowired
+    public DashboardService(ProductRepository productRepository,
+                            EnquiryRepository enquiryRepository,
+                            @Autowired(required = false) MongoTemplate mongoTemplate) {
         this.productRepository = productRepository;
         this.enquiryRepository = enquiryRepository;
+        this.mongoTemplate = mongoTemplate;
+    }
+
+    public DashboardService(ProductRepository productRepository, EnquiryRepository enquiryRepository) {
+        this(productRepository, enquiryRepository, null);
     }
 
     public DashboardStatsDto getDashboardStats() {
-        List<Product> products = productRepository.findAll();
-        List<Enquiry> enquiries = enquiryRepository.findAll();
+        // 1. Product Counts (MongoDB-side queries)
+        long totalProducts = productRepository.count();
+        long activeProducts = productRepository.countByActiveTrue();
+        long inactiveProducts = productRepository.countByActiveFalse();
 
-        long totalProducts = products.size();
-        long activeProducts = products.stream().filter(p -> p.getActive() == null || p.getActive()).count();
-        long inactiveProducts = totalProducts - activeProducts;
-
-        long totalEnquiries = enquiries.size();
-        long newEnquiries = enquiries.stream().filter(e -> e.getStatus() == EnquiryStatus.NEW).count();
-        long contactedEnquiries = enquiries.stream().filter(e -> e.getStatus() == EnquiryStatus.CONTACTED).count();
-        long inProgressEnquiries = enquiries.stream().filter(e -> e.getStatus() == EnquiryStatus.IN_PROGRESS).count();
-        long closedEnquiries = enquiries.stream().filter(e -> e.getStatus() == EnquiryStatus.CLOSED).count();
+        // 2. Enquiry Counts grouped by status (MongoDB-side queries)
+        long totalEnquiries = enquiryRepository.count();
+        long newEnquiries = enquiryRepository.countByStatus(EnquiryStatus.NEW);
+        long contactedEnquiries = enquiryRepository.countByStatus(EnquiryStatus.CONTACTED);
+        long inProgressEnquiries = enquiryRepository.countByStatus(EnquiryStatus.IN_PROGRESS);
+        long closedEnquiries = enquiryRepository.countByStatus(EnquiryStatus.CLOSED);
 
         Map<String, Long> enquiriesByStatus = new HashMap<>();
         enquiriesByStatus.put("NEW", newEnquiries);
@@ -45,42 +63,54 @@ public class DashboardService {
         enquiriesByStatus.put("IN_PROGRESS", inProgressEnquiries);
         enquiriesByStatus.put("CLOSED", closedEnquiries);
 
-        Map<String, Long> productsByCategory = products.stream()
-                .filter(p -> p.getCategory() != null && !p.getCategory().isBlank())
-                .collect(Collectors.groupingBy(Product::getCategory, Collectors.counting()));
+        // 3. Products Grouped by Category (MongoDB Aggregation)
+        Map<String, Long> productsByCategory = new HashMap<>();
+        if (mongoTemplate != null) {
+            try {
+                Aggregation agg = Aggregation.newAggregation(
+                        Aggregation.match(Criteria.where("category").ne(null).ne("")),
+                        Aggregation.group("category").count().as("count")
+                );
+                AggregationResults<CategoryCountResult> results =
+                        mongoTemplate.aggregate(agg, "products", CategoryCountResult.class);
+                for (CategoryCountResult r : results.getMappedResults()) {
+                    if (r.getId() != null && !r.getId().isBlank()) {
+                        productsByCategory.put(r.getId(), r.getCount());
+                    }
+                }
+            } catch (Exception exception) {
+                logger.error("Unable to aggregate dashboard product categories", exception);
+            }
+        }
+        if (productsByCategory.isEmpty() && mongoTemplate == null) {
+            // Fallback for isolated mock unit tests where MongoTemplate is not configured
+            List<Product> products = productRepository.findAll();
+            productsByCategory = products.stream()
+                    .filter(p -> p.getCategory() != null && !p.getCategory().isBlank())
+                    .collect(Collectors.groupingBy(Product::getCategory, Collectors.counting()));
+        }
 
-        // Mini CRM follow-up calculations
-        java.time.LocalDate today = java.time.LocalDate.now();
+        // 4. Follow-up and CRM metrics (Targeted queries with limit 10, no findAll)
+        LocalDate today = LocalDate.now();
 
-        List<Enquiry> todayFollowUpsList = enquiries.stream()
-                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isEqual(today))
-                .sorted((a, b) -> b.getUpdatedAt() != null && a.getUpdatedAt() != null ? b.getUpdatedAt().compareTo(a.getUpdatedAt()) : 0)
-                .limit(10)
-                .collect(Collectors.toList());
-        long todayFollowUps = enquiries.stream()
-                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isEqual(today))
-                .count();
+        long todayFollowUps = enquiryRepository.countByFollowUpDateAndStatusNot(today, EnquiryStatus.CLOSED);
+        List<Enquiry> todayFollowUpsList = enquiryRepository.findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(today, EnquiryStatus.CLOSED);
 
-        List<Enquiry> overdueFollowUpsList = enquiries.stream()
-                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isBefore(today) && e.getStatus() != EnquiryStatus.CLOSED)
-                .sorted((a, b) -> a.getFollowUpDate().compareTo(b.getFollowUpDate()))
-                .limit(10)
-                .collect(Collectors.toList());
-        long overdueFollowUps = enquiries.stream()
-                .filter(e -> e.getFollowUpDate() != null && e.getFollowUpDate().isBefore(today) && e.getStatus() != EnquiryStatus.CLOSED)
-                .count();
+        long overdueFollowUps = enquiryRepository.countByFollowUpDateBeforeAndStatusNot(today, EnquiryStatus.CLOSED);
+        List<Enquiry> overdueFollowUpsList = enquiryRepository.findTop10ByFollowUpDateBeforeAndStatusNotOrderByFollowUpDateAsc(today, EnquiryStatus.CLOSED);
 
-        List<Enquiry> newEnquiriesList = enquiries.stream()
-                .filter(e -> e.getStatus() == EnquiryStatus.NEW)
-                .sorted((a, b) -> b.getCreatedAt() != null && a.getCreatedAt() != null ? b.getCreatedAt().compareTo(a.getCreatedAt()) : 0)
-                .limit(10)
-                .collect(Collectors.toList());
+        List<Enquiry> newEnquiriesList = enquiryRepository.findTop10ByStatusOrderByCreatedAtDesc(EnquiryStatus.NEW);
+        List<Enquiry> inProgressEnquiriesList = enquiryRepository.findTop10ByStatusInOrderByUpdatedAtDesc(
+                List.of(EnquiryStatus.IN_PROGRESS, EnquiryStatus.CONTACTED));
 
-        List<Enquiry> inProgressEnquiriesList = enquiries.stream()
-                .filter(e -> e.getStatus() == EnquiryStatus.IN_PROGRESS || e.getStatus() == EnquiryStatus.CONTACTED)
-                .sorted((a, b) -> b.getUpdatedAt() != null && a.getUpdatedAt() != null ? b.getUpdatedAt().compareTo(a.getUpdatedAt()) : 0)
-                .limit(10)
-                .collect(Collectors.toList());
+        // 5. Additional Dashboard Data: Today's enquiries, pending follow-ups, and recent activity
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+        long todayEnquiries = enquiryRepository.countByCreatedAtBetween(startOfDay, endOfDay);
+        long pendingFollowUps = todayFollowUps + overdueFollowUps;
+
+        List<Enquiry> recentEnquiries = enquiryRepository.findTop10ByOrderByCreatedAtDesc();
+        List<Product> recentProducts = productRepository.findTop10ByOrderByUpdatedAtDesc();
 
         return DashboardStatsDto.builder()
                 .totalProducts(totalProducts)
@@ -99,6 +129,20 @@ public class DashboardService {
                 .overdueFollowUpsList(overdueFollowUpsList)
                 .newEnquiriesList(newEnquiriesList)
                 .inProgressEnquiriesList(inProgressEnquiriesList)
+                .todayEnquiries(todayEnquiries)
+                .pendingFollowUps(pendingFollowUps)
+                .recentEnquiries(recentEnquiries)
+                .recentProducts(recentProducts)
                 .build();
+    }
+
+    public static class CategoryCountResult {
+        private String id;
+        private long count;
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        public long getCount() { return count; }
+        public void setCount(long count) { this.count = count; }
     }
 }

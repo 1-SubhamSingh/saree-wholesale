@@ -16,6 +16,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.saree.dto.EnquiryFollowUpDto;
 import com.saree.dto.EnquiryRequestDto;
@@ -26,27 +28,31 @@ import com.saree.repository.EnquiryRepository;
 
 @Service
 public class EnquiryService {
+    private static final Logger logger = LoggerFactory.getLogger(EnquiryService.class);
 
     private final EnquiryRepository enquiryRepository;
     private final MongoTemplate mongoTemplate;
     private final EmailService emailService;
+    private final AdminAuditLogService auditLogService;
 
     @Autowired
     public EnquiryService(
             EnquiryRepository enquiryRepository,
             MongoTemplate mongoTemplate,
-            @Autowired(required = false) EmailService emailService) {
+            @Autowired(required = false) EmailService emailService,
+            @Autowired(required = false) AdminAuditLogService auditLogService) {
         this.enquiryRepository = enquiryRepository;
         this.mongoTemplate = mongoTemplate;
         this.emailService = emailService;
+        this.auditLogService = auditLogService;
     }
 
     public EnquiryService(EnquiryRepository enquiryRepository) {
-        this(enquiryRepository, null, null);
+        this(enquiryRepository, null, null, null);
     }
 
     public EnquiryService(EnquiryRepository enquiryRepository, MongoTemplate mongoTemplate) {
-        this(enquiryRepository, mongoTemplate, null);
+        this(enquiryRepository, mongoTemplate, null, null);
     }
 
     public Enquiry createEnquiry(EnquiryRequestDto dto) {
@@ -212,6 +218,10 @@ public class EnquiryService {
         if (dto.getLastContactedAt() != null) {
             enquiry.setLastContactedAt(dto.getLastContactedAt());
         }
+        EnquiryStatus oldStatus = enquiry.getStatus();
+        String oldNotes = enquiry.getAdminNotes();
+        boolean statusChanged = dto.getStatus() != null && oldStatus != dto.getStatus();
+        boolean notesChanged = dto.getAdminNotes() != null && !java.util.Objects.equals(oldNotes, dto.getAdminNotes());
         if (dto.getStatus() != null) {
             enquiry.setStatus(dto.getStatus());
         }
@@ -220,7 +230,9 @@ public class EnquiryService {
         }
 
         enquiry.setUpdatedAt(LocalDateTime.now());
-        return enquiryRepository.save(enquiry);
+        Enquiry saved = enquiryRepository.save(enquiry);
+        recordFollowUpAudits(id, enquiry.getFullName(), oldStatus, dto.getStatus(), oldNotes, dto.getAdminNotes(), statusChanged, notesChanged);
+        return saved;
     }
 
     public Enquiry updateEnquiryStatus(String id, EnquiryStatusUpdateDto dto) {
@@ -228,6 +240,11 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        EnquiryStatus oldStatus = enquiry.getStatus();
+        String oldNotes = enquiry.getAdminNotes();
+
+        boolean statusChanged = dto.getStatus() != null && oldStatus != dto.getStatus();
+        boolean notesChanged = dto.getAdminNotes() != null && !java.util.Objects.equals(oldNotes, dto.getAdminNotes());
         if (dto.getStatus() != null) {
             enquiry.setStatus(dto.getStatus());
         }
@@ -247,7 +264,9 @@ public class EnquiryService {
             enquiry.setLastContactedAt(dto.getLastContactedAt());
         }
         enquiry.setUpdatedAt(LocalDateTime.now());
-        return enquiryRepository.save(enquiry);
+        Enquiry saved = enquiryRepository.save(enquiry);
+        recordFollowUpAudits(id, enquiry.getFullName(), oldStatus, dto.getStatus(), oldNotes, dto.getAdminNotes(), statusChanged, notesChanged);
+        return saved;
     }
 
     public Enquiry updateEnquiryStatus(String id, EnquiryStatus newStatus, String adminNotes) {
@@ -255,6 +274,11 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        EnquiryStatus oldStatus = enquiry.getStatus();
+        String oldNotes = enquiry.getAdminNotes();
+
+        boolean statusChanged = newStatus != null && oldStatus != newStatus;
+        boolean notesChanged = adminNotes != null && !java.util.Objects.equals(oldNotes, adminNotes);
         if (newStatus != null) {
             enquiry.setStatus(newStatus);
         }
@@ -262,7 +286,9 @@ public class EnquiryService {
             enquiry.setAdminNotes(adminNotes);
         }
         enquiry.setUpdatedAt(LocalDateTime.now());
-        return enquiryRepository.save(enquiry);
+        Enquiry saved = enquiryRepository.save(enquiry);
+        recordFollowUpAudits(id, enquiry.getFullName(), oldStatus, newStatus, oldNotes, adminNotes, statusChanged, notesChanged);
+        return saved;
     }
 
     public Enquiry updateEnquiryStatus(String id, EnquiryStatus newStatus) {
@@ -274,9 +300,35 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        String oldNotes = enquiry.getAdminNotes();
         enquiry.setAdminNotes(adminNotes);
         enquiry.setUpdatedAt(LocalDateTime.now());
-        return enquiryRepository.save(enquiry);
+        Enquiry saved = enquiryRepository.save(enquiry);
+        if (!java.util.Objects.equals(oldNotes, adminNotes)) {
+            recordAudit(() -> auditLogService.logEnquiryNoteEdit(id, enquiry.getFullName(), oldNotes, adminNotes));
+        }
+        return saved;
+    }
+
+    private void recordFollowUpAudits(String id, String customerName, EnquiryStatus oldStatus,
+            EnquiryStatus newStatus, String oldNotes, String newNotes, boolean statusChanged, boolean notesChanged) {
+        if (statusChanged) {
+            recordAudit(() -> auditLogService.logEnquiryStatusChange(id, customerName, oldStatus, newStatus));
+        }
+        if (notesChanged) {
+            recordAudit(() -> auditLogService.logEnquiryNoteEdit(id, customerName, oldNotes, newNotes));
+        }
+    }
+
+    private void recordAudit(Runnable auditAction) {
+        if (auditLogService == null) {
+            return;
+        }
+        try {
+            auditAction.run();
+        } catch (Exception exception) {
+            logger.error("Enquiry mutation succeeded but its audit record could not be saved", exception);
+        }
     }
 
     public List<Enquiry> getEnquiriesByStatus(EnquiryStatus status) {

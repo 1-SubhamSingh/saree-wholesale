@@ -151,7 +151,7 @@ export default function AdminDashboardPage() {
                     {stats?.totalEnquiries ?? 0}
                   </p>
                   <p className="mt-1 text-[11px] font-semibold text-[#C5A059]">
-                    Lifetime Leads
+                    {stats?.todayEnquiries ? `+${stats.todayEnquiries} Today` : 'Lifetime Leads'}
                   </p>
                 </div>
 
@@ -181,13 +181,13 @@ export default function AdminDashboardPage() {
 
                 <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-4 shadow-sm">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-blue-900">
-                    Today's Follow-ups
+                    Pending Follow-ups
                   </p>
                   <p className="mt-2 font-serif text-2xl font-bold text-blue-900 sm:text-3xl">
-                    {stats?.todayFollowUps ?? 0}
+                    {stats?.pendingFollowUps ?? ((stats?.todayFollowUps ?? 0) + (stats?.overdueFollowUps ?? 0))}
                   </p>
                   <p className="mt-1 text-[11px] font-semibold text-blue-800">
-                    Scheduled Today
+                    {stats?.todayFollowUps ?? 0} Today • {stats?.overdueFollowUps ?? 0} Overdue
                   </p>
                 </div>
 
@@ -585,6 +585,60 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
               </div>
+
+              {/* Recent Activity: Latest Products & Enquiries */}
+              {((stats?.recentEnquiries && stats.recentEnquiries.length > 0) ||
+                (stats?.recentProducts && stats.recentProducts.length > 0)) && (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  {stats.recentEnquiries && stats.recentEnquiries.length > 0 && (
+                    <div className="rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-5 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-[#E5DAC8] pb-3 mb-3">
+                        <h3 className="font-serif text-base font-bold text-[#4A0E19]">Recent Buyer Enquiries</h3>
+                        <Link to="/admin/products?tab=enquiries" className="text-xs font-semibold text-[#6B1626] hover:underline">
+                          View All ➔
+                        </Link>
+                      </div>
+                      <div className="space-y-2">
+                        {stats.recentEnquiries.slice(0, 5).map((enq) => (
+                          <div key={enq.id} className="flex items-center justify-between rounded-lg bg-[#F4EFE6]/60 p-2.5 text-xs">
+                            <div className="min-w-0 pr-2">
+                              <div className="font-bold text-[#4A0E19] truncate">{enq.fullName} ({enq.businessName || enq.city || 'Buyer'})</div>
+                              <div className="text-[11px] text-[#55504E] truncate">{enq.selectedProduct || 'Catalogue Request'} • Status: {enq.status}</div>
+                            </div>
+                            <span className="shrink-0 text-[10px] text-[#C5A059] font-mono">
+                              {enq.createdAt ? new Date(enq.createdAt).toLocaleDateString('en-IN') : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {stats.recentProducts && stats.recentProducts.length > 0 && (
+                    <div className="rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-5 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-[#E5DAC8] pb-3 mb-3">
+                        <h3 className="font-serif text-base font-bold text-[#4A0E19]">Recently Updated Sarees</h3>
+                        <Link to="/admin/products?tab=products" className="text-xs font-semibold text-[#6B1626] hover:underline">
+                          View All ➔
+                        </Link>
+                      </div>
+                      <div className="space-y-2">
+                        {stats.recentProducts.slice(0, 5).map((prod) => (
+                          <div key={prod.id} className="flex items-center justify-between rounded-lg bg-[#F4EFE6]/60 p-2.5 text-xs">
+                            <div className="min-w-0 pr-2">
+                              <div className="font-bold text-[#4A0E19] truncate">{prod.name}</div>
+                              <div className="text-[11px] text-[#55504E] truncate">SKU: {prod.sku} • ₹{prod.price} • {prod.category}</div>
+                            </div>
+                            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${prod.active !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                              {prod.active !== false ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quick Actions Footer */}
               <div className="flex flex-col gap-4 rounded-xl border border-[#E5DAC8] bg-[#FAF7F2] p-6 sm:flex-row sm:items-center sm:justify-between">
