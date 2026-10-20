@@ -372,6 +372,7 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Product updateProduct(String id, Product product) {
         Product existing = productRepository.findById(id).orElse(null);
         // Check SKU uniqueness if SKU is being changed
@@ -424,6 +425,7 @@ public class ProductService {
         return productRepository.save(existing);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public Product toggleActive(String id, Boolean active) {
         Product existing = productRepository.findById(id).orElse(null);
         if (existing == null) {
@@ -440,6 +442,7 @@ public class ProductService {
         return updated;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void deleteProduct(String id) {
         Product existing = productRepository.findById(id).orElse(null);
         productRepository.deleteById(id);
@@ -457,10 +460,6 @@ public class ProductService {
         if (auditLogService == null) {
             return;
         }
-        try {
-            auditAction.run();
-        } catch (Exception exception) {
-            logger.error("Product mutation succeeded but its audit record could not be saved", exception);
-        }
+        auditAction.run();
     }
 }
