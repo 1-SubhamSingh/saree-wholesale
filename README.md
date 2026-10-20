@@ -101,3 +101,27 @@ saree-wholesale/
 - **Enquiry System**: Customer enquiries and admin management
 - **Image Uploads**: Uploaded product images are saved in persistent storage (`/app/uploads` volume in Docker) and served via `/api/uploads/**`
 - **React Router SPA**: Handled by Nginx `try_files` fallback
+
+---
+
+## Continuous Integration (CI)
+
+This repository includes a multi-job GitHub Actions CI workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers on every push and pull request to `main`.
+
+Each job has a `timeout-minutes` guard to prevent runaway builds.
+
+### 1. Backend Tests & Build (`timeout: 20 min`)
+- Spawns a dedicated **MongoDB 6** service container with health checks.
+- Sets up **Java 21** (Eclipse Temurin) with Maven dependency caching (`actions/setup-java@v4`).
+- Runs a **single Maven invocation** — `mvn clean package` — which compiles, runs all unit and Spring Boot integration tests, then packages the production JAR.
+- CI credentials (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `JWT_SECRET`) are read from GitHub repository secrets (`CI_ADMIN_USERNAME`, `CI_ADMIN_PASSWORD`, `CI_JWT_SECRET`). Safe CI-only fallback values are used when those secrets are not set. **Production credentials are never hardcoded.**
+
+### 2. Frontend Lint, Tests & Build (`timeout: 15 min`)
+- Sets up **Node.js 24** with npm cache (`actions/setup-node@v4`).
+- Checks code quality with **Oxlint** (`npm run lint`).
+- Runs frontend tests via `npm test` (which runs `node --test test/**/*.test.js` as defined in `package.json`). Currently covers `test/cataloguePagination.test.js`.
+- Verifies production bundle builds cleanly (`npm run build`).
+
+### 3. Docker Compose Build Verification (`timeout: 20 min`, runs after jobs 1 & 2)
+- Validates `docker-compose.yml` syntax and config (`docker compose config`).
+- Builds both multi-stage Docker images (`docker compose build`) to catch container regressions early.

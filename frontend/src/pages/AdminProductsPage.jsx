@@ -91,6 +91,8 @@ export default function AdminProductsPage() {
   const [enquirySortBy, setEnquirySortBy] = useState('newest');
   const [enquiryTotalPages, setEnquiryTotalPages] = useState(1);
   const [enquiryTotalElements, setEnquiryTotalElements] = useState(0);
+  // Bumped when the user re-submits identical search params so the useEffect fires anyway
+  const [enquiryFetchTrigger, setEnquiryFetchTrigger] = useState(0);
 
   // Enquiry detail modal state
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -175,7 +177,9 @@ export default function AdminProductsPage() {
     }
   }, [productPage, productSize, productSearch, productCategory, productActiveFilter, productSortBy, navigate]);
 
-  // Fetch Enquiries with server-side pagination & filtering
+  // Fetch Enquiries with server-side pagination & filtering.
+  // enquiryFetchTrigger is included so incrementing it re-fires the useEffect
+  // without changing any visible filter state (handles re-submit of identical search).
   const fetchEnquiries = useCallback(async () => {
     try {
       setLoadingEnquiries(true);
@@ -219,31 +223,44 @@ export default function AdminProductsPage() {
     } finally {
       setLoadingEnquiries(false);
     }
-  }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enquiryPage, enquirySize, enquirySearch, enquiryStatusFilter, enquirySortBy, enquiryFetchTrigger, navigate]);
 
-  // Auth check & data fetching for products tab
+  // Auth check & initial data fetch
   useEffect(() => {
     const token = localStorage.getItem('saree_admin_token');
     if (!token) {
       navigate('/admin/login');
-      return;
     }
+  }, [navigate]);
+
+  // Fetch products whenever tab is active or any product filter changes
+  useEffect(() => {
     if (activeTab === 'products') {
       fetchProducts();
     }
-  }, [activeTab, fetchProducts, navigate]);
+  }, [activeTab, fetchProducts]);
 
-  // Auth check & data fetching for enquiries tab (runs on tab switch, search, filter, sort, pagination)
+  // Fetch enquiries whenever tab is active or any enquiry filter/search/pagination changes
   useEffect(() => {
-    const token = localStorage.getItem('saree_admin_token');
-    if (!token) {
-      navigate('/admin/login');
-      return;
-    }
     if (activeTab === 'enquiries') {
       fetchEnquiries();
     }
-  }, [activeTab, fetchEnquiries, navigate]);
+  }, [activeTab, fetchEnquiries]);
+
+  // Pre-fetch the inactive tab on mount so both badges ('Products' and 'Enquiries')
+  // show accurate counts immediately on initial load without waiting for tab click.
+  const initialInactiveTabFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!initialInactiveTabFetchedRef.current) {
+      initialInactiveTabFetchedRef.current = true;
+      if (activeTab === 'products') {
+        fetchEnquiries();
+      } else {
+        fetchProducts();
+      }
+    }
+  }, [activeTab, fetchEnquiries, fetchProducts]);
 
   // Tab switch
   const handleTabChange = (tab) => {
@@ -271,14 +288,24 @@ export default function AdminProductsPage() {
     setProductPage(0);
   };
 
-  // Enquiry search submission
+  // Enquiry search submission.
+  // All state mutations are batched by React 18, so the useEffect fires exactly once.
+  // When nothing would change (identical search + already on page 0), bump the trigger
+  // counter so the effect fires without stale-closure risk.
   const handleEnquirySearchSubmit = (e) => {
     e.preventDefault();
-    setEnquiryPage(0);
-    if (enquirySearch === enquirySearchInput) {
-      fetchEnquiries();
+    const trimmed = enquirySearchInput.trim();
+    const searchUnchanged = enquirySearch === trimmed;
+    const alreadyOnFirstPage = enquiryPage === 0;
+
+    if (searchUnchanged && alreadyOnFirstPage) {
+      // Nothing else would change → bump trigger to force one fetch
+      setEnquiryFetchTrigger((n) => n + 1);
     } else {
-      setEnquirySearch(enquirySearchInput);
+      // At least one state value will change; React batches all into one render
+      // → useEffect fires exactly once with the correct final values.
+      if (!alreadyOnFirstPage) setEnquiryPage(0);
+      if (!searchUnchanged) setEnquirySearch(trimmed);
     }
   };
 
@@ -900,9 +927,17 @@ export default function AdminProductsPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          // Always clear the visible input.
+                          // Then drive fetching purely through state (no direct fetchEnquiries call).
                           setEnquirySearchInput('');
-                          setEnquirySearch('');
-                          setEnquiryPage(0);
+                          if (enquirySearch === '' && enquiryPage === 0) {
+                            // Nothing would change → bump trigger to force exactly one fetch
+                            setEnquiryFetchTrigger((n) => n + 1);
+                          } else {
+                            // React 18 batches both setters → useEffect fires once
+                            setEnquirySearch('');
+                            setEnquiryPage(0);
+                          }
                         }}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-700"
                       >
