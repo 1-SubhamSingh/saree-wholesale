@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.saree.dto.AdminAuditLogDto;
 import com.saree.model.AdminAuditLog;
@@ -121,6 +122,20 @@ class AdminAuditLogServiceTest {
         assertEquals("ENQUIRY_NOTE_EDIT", logged.getAction());
         assertTrue(logged.getOldValue().contains("Requested swatches"));
         assertTrue(logged.getNewValue().contains("Swatches dispatched via courier"));
+    }
+
+    @Test
+    void auditPayloadsRemainValidJsonForQuotesBackslashesAndNewlines() throws Exception {
+        ArgumentCaptor<AdminAuditLog> captor = ArgumentCaptor.forClass(AdminAuditLog.class);
+        when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.logEnquiryNoteEdit("enq-3", "Buyer \"North\"", "Old\\note\nline", "New \"note\"\\path\nline");
+
+        AdminAuditLog logged = captor.getValue();
+        ObjectMapper mapper = new ObjectMapper();
+        assertEquals("Old\\note\nline", mapper.readTree(logged.getOldValue()).get("adminNotes").asText());
+        assertEquals("New \"note\"\\path\nline", mapper.readTree(logged.getNewValue()).get("adminNotes").asText());
+        assertEquals("Buyer \"North\"", mapper.readTree(logged.getNewValue()).get("customerName").asText());
     }
 
     @Test

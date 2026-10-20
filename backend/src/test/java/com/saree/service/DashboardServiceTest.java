@@ -53,13 +53,13 @@ class DashboardServiceTest {
 
         // Mock follow-up counts and lists
         LocalDate today = LocalDate.now();
-        when(enquiryRepository.countByFollowUpDate(today)).thenReturn(2L);
+        when(enquiryRepository.countByFollowUpDateAndStatusNot(today, EnquiryStatus.CLOSED)).thenReturn(2L);
         when(enquiryRepository.countByFollowUpDateBeforeAndStatusNot(today, EnquiryStatus.CLOSED)).thenReturn(3L);
 
         Enquiry enq1 = new Enquiry();
         enq1.setId("e1");
         enq1.setFullName("Buyer One");
-        when(enquiryRepository.findTop10ByFollowUpDateOrderByUpdatedAtDesc(today))
+        when(enquiryRepository.findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(today, EnquiryStatus.CLOSED))
                 .thenReturn(List.of(enq1));
         when(enquiryRepository.findTop10ByFollowUpDateBeforeAndStatusNotOrderByFollowUpDateAsc(today, EnquiryStatus.CLOSED))
                 .thenReturn(Collections.emptyList());
@@ -119,6 +119,8 @@ class DashboardServiceTest {
         assertEquals(1, stats.getTodayFollowUpsList().size());
         assertEquals(1, stats.getRecentEnquiries().size());
         assertEquals(1, stats.getRecentProducts().size());
+        verify(enquiryRepository).countByFollowUpDateAndStatusNot(today, EnquiryStatus.CLOSED);
+        verify(enquiryRepository).findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(today, EnquiryStatus.CLOSED);
 
         // CRITICAL: verify that findAll was NOT called on repositories during normal operation
         verify(productRepository, never()).findAll();

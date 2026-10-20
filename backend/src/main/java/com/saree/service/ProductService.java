@@ -20,12 +20,15 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.saree.model.Product;
 import com.saree.repository.ProductRepository;
 
 @Service
 public class ProductService {
+    private static final Logger logger = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
     private final StorageService storageService;
@@ -392,19 +395,17 @@ public class ProductService {
         } else if (product.getCreatedAt() == null) {
             product.setCreatedAt(now);
         }
-        if (existing != null && product != null && auditLogService != null) {
-            // Price change audit
-            if (existing.getPrice() != null && product.getPrice() != null
-                    && !existing.getPrice().equals(product.getPrice())) {
-                auditLogService.logProductPriceChange(id, product.getSku(), existing.getPrice(), product.getPrice());
-            }
-            // Deactivation audit
-            if (!Boolean.FALSE.equals(existing.getActive()) && Boolean.FALSE.equals(product.getActive())) {
-                auditLogService.logProductDeactivation(id, product.getSku(), existing.getActive(), false);
-            }
-        }
         product.setUpdatedAt(now);
         Product updated = productRepository.save(product);
+        if (existing != null) {
+            if (existing.getPrice() != null && product.getPrice() != null
+                    && !existing.getPrice().equals(product.getPrice())) {
+                recordAudit(() -> auditLogService.logProductPriceChange(id, product.getSku(), existing.getPrice(), product.getPrice()));
+            }
+            if (!Boolean.FALSE.equals(existing.getActive()) && Boolean.FALSE.equals(product.getActive())) {
+                recordAudit(() -> auditLogService.logProductDeactivation(id, product.getSku(), existing.getActive(), false));
+            }
+        }
         if (existing != null && existing.getImageUrl() != null
                 && !existing.getImageUrl().equals(product.getImageUrl())) {
             storageService.delete(existing.getImageUrl());
@@ -429,22 +430,37 @@ public class ProductService {
             return null;
         }
         boolean newActive = (active != null) ? active : (existing.getActive() == null || !existing.getActive());
-        if (auditLogService != null && !Boolean.FALSE.equals(existing.getActive()) && !newActive) {
-            auditLogService.logProductDeactivation(id, existing.getSku(), existing.getActive(), false);
-        }
+        boolean deactivated = !Boolean.FALSE.equals(existing.getActive()) && !newActive;
         existing.setActive(newActive);
         existing.setUpdatedAt(java.time.LocalDateTime.now());
-        return productRepository.save(existing);
+        Product updated = productRepository.save(existing);
+        if (deactivated) {
+            recordAudit(() -> auditLogService.logProductDeactivation(id, existing.getSku(), true, false));
+        }
+        return updated;
     }
 
     public void deleteProduct(String id) {
         Product existing = productRepository.findById(id).orElse(null);
         productRepository.deleteById(id);
         if (existing != null) {
-            if (auditLogService != null) {
-                auditLogService.logProductDeletion(id, existing.getSku(), existing.getName(), existing.getPrice());
+            recordAudit(() -> auditLogService.logProductDeletion(id, existing.getSku(), existing.getName(), existing.getPrice()));
+            try {
+                storageService.delete(existing.getImageUrl());
+            } catch (Exception exception) {
+                logger.error("Product {} was deleted but its image could not be removed", id, exception);
             }
-            storageService.delete(existing.getImageUrl());
+        }
+    }
+
+    private void recordAudit(Runnable auditAction) {
+        if (auditLogService == null) {
+            return;
+        }
+        try {
+            auditAction.run();
+        } catch (Exception exception) {
+            logger.error("Product mutation succeeded but its audit record could not be saved", exception);
         }
     }
 }

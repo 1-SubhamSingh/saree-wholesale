@@ -276,6 +276,18 @@ export default function CataloguePage() {
     sortBy,
   ]);
 
+  const synchronizePageInUrl = useCallback((page) => {
+    setSearchParams((prevParams) => {
+      const next = new URLSearchParams(prevParams);
+      if (page <= 1) {
+        next.delete('page');
+      } else {
+        next.set('page', String(page));
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const fetchProducts = useCallback(async (pageToFetch = 1) => {
     const requestId = ++requestSeqRef.current;
 
@@ -329,6 +341,7 @@ export default function CataloguePage() {
 
         if (data.totalPages > 0 && pageToFetch > data.totalPages) {
           setCurrentPage(data.totalPages);
+          synchronizePageInUrl(data.totalPages);
         }
       } else if (Array.isArray(data)) {
         const activeOnly = data.filter((p) => p.active !== false);
@@ -346,6 +359,10 @@ export default function CataloguePage() {
           first: pageToFetch === 1,
           last: pageToFetch >= totalPages,
         });
+        if (pageToFetch > totalPages) {
+          setCurrentPage(totalPages);
+          synchronizePageInUrl(totalPages);
+        }
       } else {
         setProducts([]);
         setPaginationMeta({
@@ -378,12 +395,37 @@ export default function CataloguePage() {
     selectedColor,
     priceRange,
     sortBy,
+    synchronizePageInUrl,
   ]);
 
   useEffect(() => {
+    // The first key is already derived from the current URL. Record it without
+    // resetting its page so shared links can open directly on later pages.
+    if (previousQueryKeyRef.current === null) {
+      previousQueryKeyRef.current = queryKey;
+      fetchProducts(currentPage);
+      return;
+    }
+
     if (previousQueryKeyRef.current !== queryKey) {
       previousQueryKeyRef.current = queryKey;
       requestSeqRef.current += 1;
+
+      // A URL navigation (including browser back/forward) owns both the filters
+      // and page. Wait for the URL synchronization effect to apply that page
+      // instead of resetting it as though the user changed a local filter.
+      const urlFilters = getFiltersFromUrl(searchParams);
+      const urlQueryKey = JSON.stringify([
+        urlFilters.search.trim(),
+        urlFilters.category,
+        urlFilters.fabric,
+        urlFilters.color,
+        urlFilters.priceRange,
+        urlFilters.sortBy,
+      ]);
+      if (urlQueryKey === queryKey && currentPage !== urlFilters.page) {
+        return;
+      }
 
       if (currentPage !== 1) {
         setCurrentPage(1);
@@ -392,7 +434,7 @@ export default function CataloguePage() {
     }
 
     fetchProducts(currentPage);
-  }, [queryKey, currentPage, fetchProducts]);
+  }, [queryKey, currentPage, fetchProducts, getFiltersFromUrl, searchParams]);
 
   useEffect(() => {
     getProductFilters()

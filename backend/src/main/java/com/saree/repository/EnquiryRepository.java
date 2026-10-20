@@ -16,13 +16,13 @@ public interface EnquiryRepository extends MongoRepository<Enquiry, String> {
     long countByStatus(EnquiryStatus status);
     List<Enquiry> findByFollowUpDate(LocalDate date);
     List<Enquiry> findByFollowUpDateBeforeAndStatusNot(LocalDate date, EnquiryStatus status);
-    long countByFollowUpDate(LocalDate date);
+    long countByFollowUpDateAndStatusNot(LocalDate date, EnquiryStatus status);
     long countByFollowUpDateBeforeAndStatusNot(LocalDate date, EnquiryStatus status);
 
     // Optimized dashboard query methods
     long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
     long countByFollowUpDateLessThanEqualAndStatusNot(LocalDate date, EnquiryStatus status);
-    List<Enquiry> findTop10ByFollowUpDateOrderByUpdatedAtDesc(LocalDate date);
+    List<Enquiry> findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(LocalDate date, EnquiryStatus status);
     List<Enquiry> findTop10ByFollowUpDateBeforeAndStatusNotOrderByFollowUpDateAsc(LocalDate date, EnquiryStatus status);
     List<Enquiry> findTop10ByStatusOrderByCreatedAtDesc(EnquiryStatus status);
     List<Enquiry> findTop10ByStatusInOrderByUpdatedAtDesc(Collection<EnquiryStatus> statuses);

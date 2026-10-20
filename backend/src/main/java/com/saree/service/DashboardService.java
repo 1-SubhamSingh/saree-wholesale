@@ -13,6 +13,8 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.saree.dto.DashboardStatsDto;
 import com.saree.model.Enquiry;
@@ -23,6 +25,7 @@ import com.saree.repository.ProductRepository;
 
 @Service
 public class DashboardService {
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
 
     private final ProductRepository productRepository;
     private final EnquiryRepository enquiryRepository;
@@ -75,7 +78,8 @@ public class DashboardService {
                         productsByCategory.put(r.getId(), r.getCount());
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception exception) {
+                logger.error("Unable to aggregate dashboard product categories", exception);
             }
         }
         if (productsByCategory.isEmpty() && mongoTemplate == null) {
@@ -89,8 +93,8 @@ public class DashboardService {
         // 4. Follow-up and CRM metrics (Targeted queries with limit 10, no findAll)
         LocalDate today = LocalDate.now();
 
-        long todayFollowUps = enquiryRepository.countByFollowUpDate(today);
-        List<Enquiry> todayFollowUpsList = enquiryRepository.findTop10ByFollowUpDateOrderByUpdatedAtDesc(today);
+        long todayFollowUps = enquiryRepository.countByFollowUpDateAndStatusNot(today, EnquiryStatus.CLOSED);
+        List<Enquiry> todayFollowUpsList = enquiryRepository.findTop10ByFollowUpDateAndStatusNotOrderByUpdatedAtDesc(today, EnquiryStatus.CLOSED);
 
         long overdueFollowUps = enquiryRepository.countByFollowUpDateBeforeAndStatusNot(today, EnquiryStatus.CLOSED);
         List<Enquiry> overdueFollowUpsList = enquiryRepository.findTop10ByFollowUpDateBeforeAndStatusNotOrderByFollowUpDateAsc(today, EnquiryStatus.CLOSED);

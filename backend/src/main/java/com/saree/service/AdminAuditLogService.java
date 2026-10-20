@@ -1,7 +1,11 @@
 package com.saree.service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +22,7 @@ import com.saree.repository.AdminAuditLogRepository;
 @Service
 public class AdminAuditLogService {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final AdminAuditLogRepository auditLogRepository;
 
     @Autowired
@@ -52,38 +57,44 @@ public class AdminAuditLogService {
     }
 
     public void logProductPriceChange(String productId, String sku, Double oldPrice, Double newPrice) {
-        String oldVal = String.format("{\"price\": %s, \"sku\": \"%s\"}", oldPrice != null ? oldPrice : "null", sku != null ? sku : "");
-        String newVal = String.format("{\"price\": %s, \"sku\": \"%s\"}", newPrice != null ? newPrice : "null", sku != null ? sku : "");
+        String oldVal = json("price", oldPrice, "sku", sku);
+        String newVal = json("price", newPrice, "sku", sku);
         recordAction("PRODUCT_PRICE_CHANGED", "PRODUCT", productId, oldVal, newVal);
     }
 
     public void logProductDeactivation(String productId, String sku, Boolean oldActive, Boolean newActive) {
-        String oldVal = String.format("{\"active\": %s, \"sku\": \"%s\"}", oldActive != null ? oldActive : "true", sku != null ? sku : "");
-        String newVal = String.format("{\"active\": %s, \"sku\": \"%s\"}", newActive != null ? newActive : "false", sku != null ? sku : "");
+        String oldVal = json("active", oldActive, "sku", sku);
+        String newVal = json("active", newActive, "sku", sku);
         recordAction("PRODUCT_DEACTIVATED", "PRODUCT", productId, oldVal, newVal);
     }
 
     public void logProductDeletion(String productId, String sku, String name, Double price) {
-        String oldVal = String.format("{\"sku\": \"%s\", \"name\": \"%s\", \"price\": %s}",
-                sku != null ? sku : "", name != null ? name : "", price != null ? price : "null");
+        String oldVal = json("sku", sku, "name", name, "price", price);
         recordAction("PRODUCT_DELETED", "PRODUCT", productId, oldVal, "null");
     }
 
     public void logEnquiryStatusChange(String enquiryId, String customerName, EnquiryStatus oldStatus, EnquiryStatus newStatus) {
-        String oldVal = String.format("{\"status\": \"%s\", \"customerName\": \"%s\"}",
-                oldStatus != null ? oldStatus.name() : "null", customerName != null ? customerName : "");
-        String newVal = String.format("{\"status\": \"%s\", \"customerName\": \"%s\"}",
-                newStatus != null ? newStatus.name() : "null", customerName != null ? customerName : "");
+        String oldVal = json("status", oldStatus != null ? oldStatus.name() : null, "customerName", customerName);
+        String newVal = json("status", newStatus != null ? newStatus.name() : null, "customerName", customerName);
         recordAction("ENQUIRY_STATUS_CHANGE", "ENQUIRY", enquiryId, oldVal, newVal);
     }
 
     public void logEnquiryNoteEdit(String enquiryId, String customerName, String oldNote, String newNote) {
-        // Truncate notes if extremely long for clean storage, avoiding logging credentials
-        String cleanOld = oldNote != null ? oldNote.replace("\"", "\\\"") : "";
-        String cleanNew = newNote != null ? newNote.replace("\"", "\\\"") : "";
-        String oldVal = String.format("{\"adminNotes\": \"%s\", \"customerName\": \"%s\"}", cleanOld, customerName != null ? customerName : "");
-        String newVal = String.format("{\"adminNotes\": \"%s\", \"customerName\": \"%s\"}", cleanNew, customerName != null ? customerName : "");
+        String oldVal = json("adminNotes", oldNote, "customerName", customerName);
+        String newVal = json("adminNotes", newNote, "customerName", customerName);
         recordAction("ENQUIRY_NOTE_EDIT", "ENQUIRY", enquiryId, oldVal, newVal);
+    }
+
+    private String json(Object... values) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        for (int index = 0; index < values.length; index += 2) {
+            fields.put((String) values[index], values[index + 1]);
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(fields);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to serialize audit log data", exception);
+        }
     }
 
     public Page<AdminAuditLogDto> getAuditLogs(int page, int size, String entityId, String entity, String action, String admin) {

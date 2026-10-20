@@ -360,6 +360,23 @@ describe('Frontend Catalogue Pagination', () => {
   });
 
   describe('Shareable Catalogue URLs', () => {
+    it('keeps page greater than one for the initial catalogue request', () => {
+      const parsed = parseCatalogueUrlParams('/catalogue?search=silk&page=2');
+      const request = buildCatalogueQueryParams({ page: parsed.page, searchTerm: parsed.searchTerm });
+
+      assert.equal(parsed.page, 2);
+      assert.equal(request.page, 1);
+      assert.equal(request.search, 'silk');
+    });
+
+    it('restores page exactly when browser navigation changes the URL', () => {
+      const initial = parseCatalogueUrlParams('/catalogue?category=Silk%20Sarees&page=3');
+      const backNavigation = parseCatalogueUrlParams('/catalogue?category=Silk%20Sarees&page=2');
+
+      assert.equal(initial.page, 3);
+      assert.equal(backNavigation.page, 2);
+      assert.equal(buildCatalogueQueryParams({ page: backNavigation.page, selectedCategory: backNavigation.category }).page, 1);
+    });
     it('restores all filters and page from a shareable URL', () => {
       const url =
         '/catalogue?category=Banarasi%20Weave&fabric=Katan%20Silk&color=Red&priceRange=2000_3500&sortBy=price_asc&page=2';

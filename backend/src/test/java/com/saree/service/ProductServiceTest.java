@@ -17,13 +17,15 @@ class ProductServiceTest {
 
     private ProductRepository repository;
     private StorageService storageService;
+    private AdminAuditLogService auditLogService;
     private ProductService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(ProductRepository.class);
         storageService = mock(StorageService.class);
-        service = new ProductService(repository, storageService);
+        auditLogService = mock(AdminAuditLogService.class);
+        service = new ProductService(repository, storageService, null, auditLogService);
     }
 
     // --- getProductById: inactive product security fix ---
@@ -230,6 +232,42 @@ class ProductServiceTest {
         assertNotNull(result);
         assertEquals("https://images.unsplash.com/photo-legacy-v2", result.getImageUrl());
         verify(storageService).delete("https://images.unsplash.com/photo-legacy");
+    }
+
+    @Test
+    void productUpdateWritesAuditOnlyAfterSuccessfulSave() {
+        Product existing = new Product();
+        existing.setId("1");
+        existing.setSku("SKU-1");
+        existing.setPrice(1000.0);
+        Product update = new Product();
+        update.setSku("SKU-1");
+        update.setPrice(1200.0);
+        when(repository.findById("1")).thenReturn(Optional.of(existing));
+        when(repository.save(update)).thenReturn(update);
+
+        service.updateProduct("1", update);
+
+        var order = inOrder(repository, auditLogService);
+        order.verify(repository).save(update);
+        order.verify(auditLogService).logProductPriceChange("1", "SKU-1", 1000.0, 1200.0);
+    }
+
+    @Test
+    void failedProductUpdateDoesNotWriteAudit() {
+        Product existing = new Product();
+        existing.setId("1");
+        existing.setSku("SKU-1");
+        existing.setPrice(1000.0);
+        Product update = new Product();
+        update.setSku("SKU-1");
+        update.setPrice(1200.0);
+        when(repository.findById("1")).thenReturn(Optional.of(existing));
+        when(repository.save(update)).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThrows(IllegalStateException.class, () -> service.updateProduct("1", update));
+
+        verifyNoInteractions(auditLogService);
     }
 
     @Test
