@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.saree.model.Enquiry;
+import com.saree.model.Product;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,5 +33,10 @@ public class DashboardStatsDto {
     private List<Enquiry> overdueFollowUpsList;
     private List<Enquiry> newEnquiriesList;
     private List<Enquiry> inProgressEnquiriesList;
-}
 
+    // New optimized dashboard data fields
+    private long todayEnquiries;
+    private long pendingFollowUps;
+    private List<Enquiry> recentEnquiries;
+    private List<Product> recentProducts;
+}

@@ -30,23 +30,26 @@ public class EnquiryService {
     private final EnquiryRepository enquiryRepository;
     private final MongoTemplate mongoTemplate;
     private final EmailService emailService;
+    private final AdminAuditLogService auditLogService;
 
     @Autowired
     public EnquiryService(
             EnquiryRepository enquiryRepository,
             MongoTemplate mongoTemplate,
-            @Autowired(required = false) EmailService emailService) {
+            @Autowired(required = false) EmailService emailService,
+            @Autowired(required = false) AdminAuditLogService auditLogService) {
         this.enquiryRepository = enquiryRepository;
         this.mongoTemplate = mongoTemplate;
         this.emailService = emailService;
+        this.auditLogService = auditLogService;
     }
 
     public EnquiryService(EnquiryRepository enquiryRepository) {
-        this(enquiryRepository, null, null);
+        this(enquiryRepository, null, null, null);
     }
 
     public EnquiryService(EnquiryRepository enquiryRepository, MongoTemplate mongoTemplate) {
-        this(enquiryRepository, mongoTemplate, null);
+        this(enquiryRepository, mongoTemplate, null, null);
     }
 
     public Enquiry createEnquiry(EnquiryRequestDto dto) {
@@ -228,11 +231,20 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        EnquiryStatus oldStatus = enquiry.getStatus();
+        String oldNotes = enquiry.getAdminNotes();
+
         if (dto.getStatus() != null) {
             enquiry.setStatus(dto.getStatus());
+            if (auditLogService != null && oldStatus != dto.getStatus()) {
+                auditLogService.logEnquiryStatusChange(id, enquiry.getFullName(), oldStatus, dto.getStatus());
+            }
         }
         if (dto.getAdminNotes() != null) {
             enquiry.setAdminNotes(dto.getAdminNotes());
+            if (auditLogService != null && (oldNotes == null || !oldNotes.equals(dto.getAdminNotes()))) {
+                auditLogService.logEnquiryNoteEdit(id, enquiry.getFullName(), oldNotes, dto.getAdminNotes());
+            }
         }
         if (dto.getFollowUpDate() != null) {
             enquiry.setFollowUpDate(dto.getFollowUpDate());
@@ -255,11 +267,20 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        EnquiryStatus oldStatus = enquiry.getStatus();
+        String oldNotes = enquiry.getAdminNotes();
+
         if (newStatus != null) {
             enquiry.setStatus(newStatus);
+            if (auditLogService != null && oldStatus != newStatus) {
+                auditLogService.logEnquiryStatusChange(id, enquiry.getFullName(), oldStatus, newStatus);
+            }
         }
         if (adminNotes != null) {
             enquiry.setAdminNotes(adminNotes);
+            if (auditLogService != null && (oldNotes == null || !oldNotes.equals(adminNotes))) {
+                auditLogService.logEnquiryNoteEdit(id, enquiry.getFullName(), oldNotes, adminNotes);
+            }
         }
         enquiry.setUpdatedAt(LocalDateTime.now());
         return enquiryRepository.save(enquiry);
@@ -274,7 +295,11 @@ public class EnquiryService {
         if (enquiry == null) {
             return null;
         }
+        String oldNotes = enquiry.getAdminNotes();
         enquiry.setAdminNotes(adminNotes);
+        if (auditLogService != null && (oldNotes == null || !oldNotes.equals(adminNotes))) {
+            auditLogService.logEnquiryNoteEdit(id, enquiry.getFullName(), oldNotes, adminNotes);
+        }
         enquiry.setUpdatedAt(LocalDateTime.now());
         return enquiryRepository.save(enquiry);
     }

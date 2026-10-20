@@ -30,18 +30,27 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final StorageService storageService;
     private final MongoTemplate mongoTemplate;
+    private final AdminAuditLogService auditLogService;
 
     @Autowired
     public ProductService(ProductRepository productRepository,
                           StorageService storageService,
-                          MongoTemplate mongoTemplate) {
+                          MongoTemplate mongoTemplate,
+                          @Autowired(required = false) AdminAuditLogService auditLogService) {
         this.productRepository = productRepository;
         this.storageService = storageService;
         this.mongoTemplate = mongoTemplate;
+        this.auditLogService = auditLogService;
+    }
+
+    public ProductService(ProductRepository productRepository,
+                          StorageService storageService,
+                          MongoTemplate mongoTemplate) {
+        this(productRepository, storageService, mongoTemplate, null);
     }
 
     public ProductService(ProductRepository productRepository, StorageService storageService) {
-        this(productRepository, storageService, null);
+        this(productRepository, storageService, null, null);
     }
 
     public List<Product> getAllProducts() {
@@ -383,6 +392,17 @@ public class ProductService {
         } else if (product.getCreatedAt() == null) {
             product.setCreatedAt(now);
         }
+        if (existing != null && product != null && auditLogService != null) {
+            // Price change audit
+            if (existing.getPrice() != null && product.getPrice() != null
+                    && !existing.getPrice().equals(product.getPrice())) {
+                auditLogService.logProductPriceChange(id, product.getSku(), existing.getPrice(), product.getPrice());
+            }
+            // Deactivation audit
+            if (!Boolean.FALSE.equals(existing.getActive()) && Boolean.FALSE.equals(product.getActive())) {
+                auditLogService.logProductDeactivation(id, product.getSku(), existing.getActive(), false);
+            }
+        }
         product.setUpdatedAt(now);
         Product updated = productRepository.save(product);
         if (existing != null && existing.getImageUrl() != null
@@ -409,6 +429,9 @@ public class ProductService {
             return null;
         }
         boolean newActive = (active != null) ? active : (existing.getActive() == null || !existing.getActive());
+        if (auditLogService != null && !Boolean.FALSE.equals(existing.getActive()) && !newActive) {
+            auditLogService.logProductDeactivation(id, existing.getSku(), existing.getActive(), false);
+        }
         existing.setActive(newActive);
         existing.setUpdatedAt(java.time.LocalDateTime.now());
         return productRepository.save(existing);
@@ -418,6 +441,9 @@ public class ProductService {
         Product existing = productRepository.findById(id).orElse(null);
         productRepository.deleteById(id);
         if (existing != null) {
+            if (auditLogService != null) {
+                auditLogService.logProductDeletion(id, existing.getSku(), existing.getName(), existing.getPrice());
+            }
             storageService.delete(existing.getImageUrl());
         }
     }

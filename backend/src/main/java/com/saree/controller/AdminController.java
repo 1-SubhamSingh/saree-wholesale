@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,17 +33,29 @@ public class AdminController {
     private final DashboardService dashboardService;
     private final AdminAuthService adminAuthService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.saree.service.AdminAuditLogService adminAuditLogService;
+
+    @Autowired
+    public AdminController(ProductService productService,
+                           EnquiryService enquiryService,
+                           DashboardService dashboardService,
+                           AdminAuthService adminAuthService,
+                           JwtTokenProvider jwtTokenProvider,
+                           @Autowired(required = false) com.saree.service.AdminAuditLogService adminAuditLogService) {
+        this.productService = productService;
+        this.enquiryService = enquiryService;
+        this.dashboardService = dashboardService;
+        this.adminAuthService = adminAuthService;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.adminAuditLogService = adminAuditLogService;
+    }
 
     public AdminController(ProductService productService,
                            EnquiryService enquiryService,
                            DashboardService dashboardService,
                            AdminAuthService adminAuthService,
                            JwtTokenProvider jwtTokenProvider) {
-        this.productService = productService;
-        this.enquiryService = enquiryService;
-        this.dashboardService = dashboardService;
-        this.adminAuthService = adminAuthService;
-        this.jwtTokenProvider = jwtTokenProvider;
+        this(productService, enquiryService, dashboardService, adminAuthService, jwtTokenProvider, null);
     }
 
     // --- Admin Authentication ---
@@ -185,6 +198,23 @@ public class AdminController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(updated);
+    }
+
+    // --- Admin Audit Logs ---
+    @GetMapping("/audit-logs")
+    public ResponseEntity<com.saree.dto.PageResponse<com.saree.dto.AdminAuditLogDto>> getAuditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String entityId,
+            @RequestParam(required = false) String entity,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String admin) {
+        if (adminAuditLogService == null) {
+            return ResponseEntity.ok(new com.saree.dto.PageResponse<>(java.util.Collections.emptyList(), page, size, 0, 0, true, true));
+        }
+        org.springframework.data.domain.Page<com.saree.dto.AdminAuditLogDto> logPage =
+                adminAuditLogService.getAuditLogs(page, size, entityId, entity, action, admin);
+        return ResponseEntity.ok(com.saree.dto.PageResponse.from(logPage));
     }
 
     // --- DTO to Entity Mapping ---

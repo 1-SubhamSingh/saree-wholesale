@@ -188,10 +188,27 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Helper to extract and sanitize all catalogue URL query parameters
+  const getFiltersFromUrl = useCallback((params) => {
+    const category = params.get('category')?.trim() || 'All Categories';
+    const fabric = params.get('fabric')?.trim() || 'All Fabrics';
+    const color = params.get('color')?.trim() || 'All Colors';
+    const priceRange = params.get('priceRange')?.trim() || 'all';
+    const sortBy = params.get('sortBy')?.trim() || 'featured';
+    const search = params.get('search')?.trim() || '';
+    const rawPage = parseInt(params.get('page') || '1', 10);
+    const page = Number.isInteger(rawPage) && rawPage >= 1 ? rawPage : 1;
+    return { category, fabric, color, priceRange, sortBy, search, page };
+  }, []);
+
+  const initialFilters = getFiltersFromUrl(searchParams);
+
+  // Pagination state initialized from URL
+  const [currentPage, setCurrentPage] = useState(initialFilters.page);
   const [paginationMeta, setPaginationMeta] = useState({
-    page: 0,
+    page: initialFilters.page - 1,
     size: PAGE_SIZE,
     totalElements: 0,
     totalPages: 0,
@@ -199,19 +216,14 @@ export default function CataloguePage() {
     last: true,
   });
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const categoryParam = searchParams.get('category');
-
-  // Filter & Search states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(
-    categoryParam ? categoryParam.trim() : 'All Categories'
-  );
-  const [selectedFabric, setSelectedFabric] = useState('All Fabrics');
-  const [selectedColor, setSelectedColor] = useState('All Colors');
-  const [priceRange, setPriceRange] = useState('all');
-  const [sortBy, setSortBy] = useState('featured');
+  // Filter & Search states initialized from URL
+  const [searchTerm, setSearchTerm] = useState(initialFilters.search);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialFilters.search);
+  const [selectedCategory, setSelectedCategory] = useState(initialFilters.category);
+  const [selectedFabric, setSelectedFabric] = useState(initialFilters.fabric);
+  const [selectedColor, setSelectedColor] = useState(initialFilters.color);
+  const [priceRange, setPriceRange] = useState(initialFilters.priceRange);
+  const [sortBy, setSortBy] = useState(initialFilters.sortBy);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
@@ -221,6 +233,30 @@ export default function CataloguePage() {
   const resultsTopRef = useRef(null);
   const requestSeqRef = useRef(0);
   const previousQueryKeyRef = useRef(null);
+
+  // Synchronize state when URL searchParams change (handles back/forward navigation and shared links)
+  useEffect(() => {
+    const current = getFiltersFromUrl(searchParams);
+
+    setSelectedCategory((prev) => (prev !== current.category ? current.category : prev));
+    setSelectedFabric((prev) => (prev !== current.fabric ? current.fabric : prev));
+    setSelectedColor((prev) => (prev !== current.color ? current.color : prev));
+    setPriceRange((prev) => (prev !== current.priceRange ? current.priceRange : prev));
+    setSortBy((prev) => (prev !== current.sortBy ? current.sortBy : prev));
+    setSearchTerm((prev) => (prev !== current.search ? current.search : prev));
+    setDebouncedSearch((prev) => (prev !== current.search ? current.search : prev));
+    setCurrentPage((prev) => (prev !== current.page ? current.page : prev));
+
+    if (current.category && current.category !== 'All Categories') {
+      setCategoryOptions((prev) => (prev.includes(current.category) ? prev : [...prev, current.category]));
+    }
+    if (current.fabric && current.fabric !== 'All Fabrics') {
+      setFabricOptions((prev) => (prev.includes(current.fabric) ? prev : [...prev, current.fabric]));
+    }
+    if (current.color && current.color !== 'All Colors') {
+      setColorOptions((prev) => (prev.includes(current.color) ? prev : [...prev, current.color]));
+    }
+  }, [searchParams, getFiltersFromUrl]);
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -397,26 +433,112 @@ export default function CataloguePage() {
 
 
 
-  // Automatically apply category filter from URL query param
+  // Helper to push or replace updated parameters in the URL
+  const updateCatalogueUrl = useCallback(
+    (updates, replace = false) => {
+      setSearchParams((prevParams) => {
+        const next = new URLSearchParams(prevParams);
+
+        if ('category' in updates) {
+          if (!updates.category || updates.category === 'All Categories') {
+            next.delete('category');
+          } else {
+            next.set('category', updates.category);
+          }
+        }
+
+        if ('fabric' in updates) {
+          if (!updates.fabric || updates.fabric === 'All Fabrics') {
+            next.delete('fabric');
+          } else {
+            next.set('fabric', updates.fabric);
+          }
+        }
+
+        if ('color' in updates) {
+          if (!updates.color || updates.color === 'All Colors') {
+            next.delete('color');
+          } else {
+            next.set('color', updates.color);
+          }
+        }
+
+        if ('priceRange' in updates) {
+          if (!updates.priceRange || updates.priceRange === 'all') {
+            next.delete('priceRange');
+          } else {
+            next.set('priceRange', updates.priceRange);
+          }
+        }
+
+        if ('sortBy' in updates) {
+          if (!updates.sortBy || updates.sortBy === 'featured') {
+            next.delete('sortBy');
+          } else {
+            next.set('sortBy', updates.sortBy);
+          }
+        }
+
+        if ('search' in updates) {
+          const trimmed = (updates.search || '').trim();
+          if (!trimmed) {
+            next.delete('search');
+          } else {
+            next.set('search', trimmed);
+          }
+        }
+
+        if ('page' in updates) {
+          const p = updates.page;
+          if (!p || p <= 1) {
+            next.delete('page');
+          } else {
+            next.set('page', String(p));
+          }
+        }
+
+        return next;
+      }, { replace });
+    },
+    [setSearchParams]
+  );
+
+  // Sync debounced search to URL (uses replace so typing characters doesn't spam browser history)
   useEffect(() => {
-    if (categoryParam && categoryParam.trim()) {
-      const cat = categoryParam.trim();
-      setSelectedCategory(cat);
-      setCategoryOptions((prev) => (prev.includes(cat) ? prev : [...prev, cat]));
-    } else if (categoryParam === null) {
-      setSelectedCategory('All Categories');
+    const urlSearch = searchParams.get('search')?.trim() || '';
+    if (debouncedSearch !== urlSearch) {
+      updateCatalogueUrl({ search: debouncedSearch, page: 1 }, true);
     }
-  }, [categoryParam]);
+  }, [debouncedSearch, searchParams, updateCatalogueUrl]);
 
   const handleSelectCategory = (cat) => {
     setSelectedCategory(cat);
-    const nextParams = new URLSearchParams(searchParams);
-    if (!cat || cat === 'All Categories') {
-      nextParams.delete('category');
-    } else {
-      nextParams.set('category', cat);
-    }
-    setSearchParams(nextParams, { replace: true });
+    setCurrentPage(1);
+    updateCatalogueUrl({ category: cat, page: 1 });
+  };
+
+  const handleSelectFabric = (fab) => {
+    setSelectedFabric(fab);
+    setCurrentPage(1);
+    updateCatalogueUrl({ fabric: fab, page: 1 });
+  };
+
+  const handleSelectColor = (col) => {
+    setSelectedColor(col);
+    setCurrentPage(1);
+    updateCatalogueUrl({ color: col, page: 1 });
+  };
+
+  const handleSelectPriceRange = (pr) => {
+    setPriceRange(pr);
+    setCurrentPage(1);
+    updateCatalogueUrl({ priceRange: pr, page: 1 });
+  };
+
+  const handleSortChange = (sb) => {
+    setSortBy(sb);
+    setCurrentPage(1);
+    updateCatalogueUrl({ sortBy: sb, page: 1 });
   };
 
   const handleResetFilters = () => {
@@ -428,9 +550,7 @@ export default function CataloguePage() {
     setPriceRange('all');
     setSortBy('featured');
     setCurrentPage(1);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('category');
-    setSearchParams(nextParams, { replace: true });
+    setSearchParams(new URLSearchParams());
   };
 
   const handlePageChange = (newPage) => {
@@ -438,6 +558,7 @@ export default function CataloguePage() {
       return;
     }
     setCurrentPage(newPage);
+    updateCatalogueUrl({ page: newPage });
 
     if (resultsTopRef.current) {
       resultsTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -568,7 +689,7 @@ export default function CataloguePage() {
 
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => handleSortChange(e.target.value)}
                   className="min-h-11 w-full min-w-0 rounded-lg border border-[#E5DAC8] bg-[#FAF7F2] px-3 py-2.5 text-xs font-semibold text-[#4A0E19] focus:outline-none focus:ring-1 focus:ring-[#C5A059] sm:w-auto"
                 >
                   {SORT_OPTIONS.map((opt) => (
@@ -592,12 +713,12 @@ export default function CataloguePage() {
                 onSelectCategory={handleSelectCategory}
                 fabricOptions={fabricOptions}
                 selectedFabric={selectedFabric}
-                onSelectFabric={setSelectedFabric}
+                onSelectFabric={handleSelectFabric}
                 colorOptions={colorOptions}
                 selectedColor={selectedColor}
-                onSelectColor={setSelectedColor}
+                onSelectColor={handleSelectColor}
                 priceRange={priceRange}
-                onSelectPriceRange={setPriceRange}
+                onSelectPriceRange={handleSelectPriceRange}
                 onResetFilters={handleResetFilters}
               />
             </aside>
@@ -814,12 +935,12 @@ export default function CataloguePage() {
                 onSelectCategory={handleSelectCategory}
                 fabricOptions={fabricOptions}
                 selectedFabric={selectedFabric}
-                onSelectFabric={setSelectedFabric}
+                onSelectFabric={handleSelectFabric}
                 colorOptions={colorOptions}
                 selectedColor={selectedColor}
-                onSelectColor={setSelectedColor}
+                onSelectColor={handleSelectColor}
                 priceRange={priceRange}
-                onSelectPriceRange={setPriceRange}
+                onSelectPriceRange={handleSelectPriceRange}
                 onResetFilters={handleResetFilters}
               />
             </div>
